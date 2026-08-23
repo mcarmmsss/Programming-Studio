@@ -1,0 +1,948 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Programming Studio</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div id="project-picker" class="project-picker">
+      <div class="project-picker-panel">
+        <p class="eyebrow">Programming Studio</p>
+        <h2>Choose a project</h2>
+        <div id="project-list" class="project-list"></div>
+
+        <div class="project-create-row">
+          <input id="new-project-name" type="text" placeholder="New project name" />
+          <button id="new-project-btn" type="button" class="primary-btn">New project</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="app-shell" class="app-shell hidden">
+      <aside class="sidebar">
+        <div class="brand-block">
+          <button id="sidebar-toggle" class="sidebar-toggle" type="button" aria-label="Toggle sidebar">☰</button>
+          <div class="brand-copy">
+            <p class="eyebrow">Interior Design</p>
+            <h1>Programming Studio</h1>
+          </div>
+        </div>
+
+        <nav class="sidebar-nav" aria-label="Project sections">
+          <button class="nav-item active" data-section="user-profile">User Profile</button>
+          <button class="nav-item" data-section="observation-log">Observation Log</button>
+          <button class="nav-item" data-section="interview">Interview</button>
+          <button class="nav-item" data-section="site-survey">Space / Site Survey</button>
+          <button class="nav-item" data-section="inventory">Furniture &amp; Equipment</button>
+          <button class="nav-item" data-section="photos">Photos</button>
+          <button class="nav-item" data-section="floor-plan">Floor Plan</button>
+          <button class="nav-item" data-section="bubble-diagram">Bubble Diagram</button>
+          <button class="nav-item" data-section="prox-matrix">Proximity Matrix</button>
+          <button class="nav-item" data-section="visualization">Data Visualization</button>
+          <button class="nav-item" data-section="findings">Findings</button>
+          <button class="nav-item" data-section="conclusion">Conclusion</button>
+          <button class="nav-item" data-section="report-preview">Report Preview</button>
+          <button class="nav-item" data-section="export">Export PDF</button>
+        </nav>
+      </aside>
+
+      <main class="main-panel">
+        <header class="topbar">
+          <div>
+            <p class="eyebrow">Paper 1 Programming Report</p>
+            <h2>Project Dashboard</h2>
+          </div>
+
+          <div class="topbar-actions">
+            <button id="switch-project-btn" class="secondary-btn" type="button">Switch project</button>
+            <span id="save-status" class="save-status">Auto-save ready</span>
+            <button id="manual-save" class="secondary-btn" type="button">Save now</button>
+            <button id="reset-project" class="danger-btn" type="button">Reset project</button>
+          </div>
+        </header>
+
+        <section class="overview-card">
+          <div class="overview-copy">
+            <p class="eyebrow">Project progress</p>
+            <h3>Overall completion</h3>
+          </div>
+
+          <div class="progress-block">
+            <div class="progress-meta">
+              <strong id="progress-percent">0%</strong>
+              <span id="progress-detail">Profile information started</span>
+            </div>
+            <div class="progress-bar" aria-label="Project completion">
+              <span id="progress-fill"></span>
+            </div>
+          </div>
+        </section>
+
+        <section class="stats-grid" aria-label="Project summary">
+          <article class="stat-card">
+            <span>Sections completed</span>
+            <strong>1 / 14</strong>
+          </article>
+          <article class="stat-card">
+            <span>Last saved</span>
+            <strong id="last-saved">Not yet</strong>
+          </article>
+          <article class="stat-card">
+            <span>Current focus</span>
+            <strong>User Profile</strong>
+          </article>
+        </section>
+
+        <section id="user-profile" class="content-card">
+          <div class="section-heading">
+            <div>
+              <p class="eyebrow">Section 1</p>
+              <h3>User Profile</h3>
+            </div>
+            <span class="badge">Essential baseline</span>
+          </div>
+
+          <form id="user-profile-form" class="profile-form">
+            <div class="field-grid three-columns">
+              <label class="field">
+                <span>Name</span>
+                <input type="text" data-field="profile.name" placeholder="Full name" />
+              </label>
+
+              <label class="field">
+                <span>Age</span>
+                <input type="number" min="0" data-field="profile.age" placeholder="e.g. 26" />
+              </label>
+
+              <label class="field">
+                <span>Sex</span>
+                <select data-field="profile.sex">
+                  <option value="">Select</option>
+                  <option>Female</option>
+                  <option>Male</option>
+                  <option>Prefer not to say</option>
+                  <option>Other</option>
+                </select>
+              </label>
+
+              <label class="field">
+                <span>Civil status</span>
+                <select data-field="profile.civilStatus">
+                  <option value="">Select</option>
+                  <option>Single</option>
+                  <option>Married</option>
+                  <option>Living with partner</option>
+                  <option>Separated</option>
+                  <option>Widowed</option>
+                </select>
+              </label>
+
+              <label class="field">
+                <span>Occupation</span>
+                <input type="text" data-field="profile.occupation" placeholder="Occupation" />
+              </label>
+
+              <label class="field">
+                <span>Educational attainment</span>
+                <select data-field="profile.education">
+                  <option value="">Select</option>
+                  <option>High school graduate</option>
+                  <option>College student</option>
+                  <option>College graduate</option>
+                  <option>Postgraduate</option>
+                  <option>Vocational</option>
+                  <option>Other</option>
+                </select>
+              </label>
+
+              <label class="field">
+                <span>Household size</span>
+                <input type="number" min="1" data-field="profile.householdSize" placeholder="e.g. 4" />
+              </label>
+
+              <label class="field">
+                <span>Years living in current home</span>
+                <input type="number" min="0" step="0.5" data-field="profile.yearsInHome" placeholder="e.g. 2" />
+              </label>
+
+              <label class="field">
+                <span>Monthly income (optional)</span>
+                <input type="number" min="0" data-field="profile.monthlyIncome" placeholder="Amount" />
+              </label>
+            </div>
+
+            <div class="field-grid two-columns">
+              <label class="field">
+                <span>Interests / hobbies</span>
+                <textarea rows="3" data-field="profile.interests" placeholder="Describe interests and hobbies"></textarea>
+              </label>
+
+              <label class="field">
+                <span>Daily devices / gadgets</span>
+                <textarea rows="3" data-field="profile.devices" placeholder="List devices used daily"></textarea>
+              </label>
+            </div>
+
+            <div class="field-grid three-columns">
+              <label class="field">
+                <span>Average hours online</span>
+                <input type="number" min="0" step="0.5" data-field="profile.hoursOnline" placeholder="e.g. 5.5" />
+              </label>
+
+              <fieldset class="field fieldset">
+                <legend>Dedicated workspace?</legend>
+                <div class="radio-group">
+                  <label><input type="radio" name="workspaceDedicated" value="Yes" data-field="profile.workspaceDedicated" /> Yes</label>
+                  <label><input type="radio" name="workspaceDedicated" value="No" data-field="profile.workspaceDedicated" /> No</label>
+                </div>
+              </fieldset>
+
+              <fieldset class="field fieldset">
+                <legend>Dedicated hobby/interest space?</legend>
+                <div class="radio-group">
+                  <label><input type="radio" name="hobbySpaceDedicated" value="Yes" data-field="profile.hobbySpaceDedicated" /> Yes</label>
+                  <label><input type="radio" name="hobbySpaceDedicated" value="No" data-field="profile.hobbySpaceDedicated" /> No</label>
+                </div>
+              </fieldset>
+
+              <fieldset class="field fieldset">
+                <legend>Does workspace double as hobby space?</legend>
+                <div class="radio-group">
+                  <label><input type="radio" name="workspaceDoubles" value="Yes" data-field="profile.workspaceDoubles" /> Yes</label>
+                  <label><input type="radio" name="workspaceDoubles" value="No" data-field="profile.workspaceDoubles" /> No</label>
+                </div>
+              </fieldset>
+            </div>
+
+            <div class="field-group">
+              <label class="field">
+                <span>Existing furniture</span>
+              </label>
+              <div class="checkbox-grid">
+                <label><input type="checkbox" value="Desk" data-field="profile.existingFurniture" /> Desk</label>
+                <label><input type="checkbox" value="Chair" data-field="profile.existingFurniture" /> Chair</label>
+                <label><input type="checkbox" value="Bed" data-field="profile.existingFurniture" /> Bed</label>
+                <label><input type="checkbox" value="Cabinet" data-field="profile.existingFurniture" /> Cabinet</label>
+                <label><input type="checkbox" value="Bookshelf" data-field="profile.existingFurniture" /> Bookshelf</label>
+                <label><input type="checkbox" value="Sofa" data-field="profile.existingFurniture" /> Sofa</label>
+                <label><input type="checkbox" value="Storage box" data-field="profile.existingFurniture" /> Storage box</label>
+                <label><input type="checkbox" value="Computer" data-field="profile.existingFurniture" /> Computer</label>
+                <label><input type="checkbox" value="Other" data-field="profile.existingFurniture" /> Other</label>
+              </div>
+              <input type="text" class="custom-input" data-field="profile.existingFurnitureCustom" placeholder="List other furniture pieces" />
+            </div>
+          </form>
+        </section>
+
+        <section id="observation-log" class="content-card">
+          <div class="section-heading">
+            <div>
+              <p class="eyebrow">Section 2</p>
+              <h3>Observation Log</h3>
+            </div>
+            <span class="badge">Daily routines</span>
+          </div>
+
+          <form id="observation-form" class="stack-form">
+            <div class="field-grid three-columns">
+              <label class="field">
+                <span>Date</span>
+                <input type="date" id="observation-date" />
+              </label>
+
+              <label class="field">
+                <span>Approximate time</span>
+                <input type="time" id="observation-time" />
+              </label>
+
+              <label class="field">
+                <span>Room / area</span>
+                <input type="text" id="observation-room" placeholder="Bedroom, studio, kitchen..." />
+              </label>
+            </div>
+
+            <div class="field-grid three-columns">
+              <label class="field">
+                <span>Activity</span>
+                <input type="text" id="observation-activity" list="activity-options" placeholder="Type or select an activity" />
+                <datalist id="activity-options">
+                  <option value="Sleeping"></option>
+                  <option value="Eating"></option>
+                  <option value="Studying"></option>
+                  <option value="Working"></option>
+                  <option value="Cooking"></option>
+                  <option value="Cleaning"></option>
+                  <option value="Using phone"></option>
+                  <option value="Using computer"></option>
+                  <option value="Watching TV"></option>
+                  <option value="Socializing"></option>
+                  <option value="Hobby"></option>
+                  <option value="Personal care"></option>
+                  <option value="Other"></option>
+                </datalist>
+              </label>
+
+              <label class="field">
+                <span>Duration (optional)</span>
+                <input type="text" id="observation-duration" placeholder="e.g. 45 minutes" />
+              </label>
+
+              <label class="field">
+                <span>Optional photo URL</span>
+                <input type="url" id="observation-photo" placeholder="https://example.com/photo.jpg" />
+              </label>
+            </div>
+
+            <div class="field-group">
+              <label class="field">
+                <span>Remarkable finding</span>
+                <textarea id="observation-finding" rows="3" placeholder="What stood out in this observation?"></textarea>
+              </label>
+            </div>
+
+            <div class="chip-row" aria-label="Common activities">
+              <button type="button" class="chip-button" data-activity="Sleeping">Sleeping</button>
+              <button type="button" class="chip-button" data-activity="Eating">Eating</button>
+              <button type="button" class="chip-button" data-activity="Studying">Studying</button>
+              <button type="button" class="chip-button" data-activity="Working">Working</button>
+              <button type="button" class="chip-button" data-activity="Cooking">Cooking</button>
+              <button type="button" class="chip-button" data-activity="Cleaning">Cleaning</button>
+              <button type="button" class="chip-button" data-activity="Using phone">Using phone</button>
+              <button type="button" class="chip-button" data-activity="Using computer">Using computer</button>
+              <button type="button" class="chip-button" data-activity="Watching TV">Watching TV</button>
+              <button type="button" class="chip-button" data-activity="Socializing">Socializing</button>
+              <button type="button" class="chip-button" data-activity="Hobby">Hobby</button>
+              <button type="button" class="chip-button" data-activity="Personal care">Personal care</button>
+            </div>
+
+            <div class="button-row">
+              <button type="submit" class="primary-btn">Add observation</button>
+            </div>
+          </form>
+
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Date</th>
+                  <th>Time</th>
+                  <th>Activity</th>
+                  <th>Room</th>
+                  <th>Duration</th>
+                  <th>Finding</th>
+                  <th>Photo</th>
+                </tr>
+              </thead>
+              <tbody id="observation-table-body"></tbody>
+            </table>
+          </div>
+        </section>
+
+        <section id="interview" class="content-card">
+          <div class="section-heading">
+            <div>
+              <p class="eyebrow">Section 3</p>
+              <h3>Interview Builder</h3>
+            </div>
+            <span class="badge">Questions & answers</span>
+          </div>
+
+          <div class="interview-layout">
+            <div class="panel-block">
+              <h4>Suggested questions</h4>
+              <p class="helper-text">Select questions, then add them to your interview flow.</p>
+              <div id="interview-categories" class="category-list"></div>
+              <div class="custom-question-row">
+                <input id="custom-question-input" type="text" placeholder="Add a custom question" />
+                <button id="add-custom-question" type="button" class="secondary-btn small-btn">Add custom</button>
+              </div>
+            </div>
+
+            <div class="panel-block">
+              <h4>Interview flow &amp; answers</h4>
+              <p class="helper-text">Type your answers directly into each question. The answers appear in the log below as you write.</p>
+              <div id="interview-question-list" class="question-list"></div>
+              <div class="interview-log-block">
+                <h5>Answer log</h5>
+                <div id="interview-log" class="interview-log"></div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section id="inventory" class="content-card">
+          <div class="section-heading">
+            <div>
+              <p class="eyebrow">Section 2</p>
+              <h3>Furniture &amp; Equipment</h3>
+            </div>
+            <span class="badge">Inventory</span>
+          </div>
+
+          <form id="inventory-form" class="stack-form">
+            <div class="field-grid three-columns">
+              <label class="field">
+                <span>Item name</span>
+                <input type="text" id="item-name" placeholder="Desk, chair, shelf..." />
+              </label>
+
+              <label class="field">
+                <span>Category</span>
+                <select id="item-category">
+                  <option value="">Select</option>
+                  <option>Desk</option>
+                  <option>Chair</option>
+                  <option>Bed</option>
+                  <option>Cabinet</option>
+                  <option>Shelf</option>
+                  <option>Rack</option>
+                  <option>Table</option>
+                  <option>Sofa</option>
+                  <option>Storage box</option>
+                  <option>Computer</option>
+                  <option>Appliance</option>
+                  <option>Other</option>
+                </select>
+              </label>
+
+              <label class="field">
+                <span>Quantity</span>
+                <input type="number" id="item-quantity" min="1" value="1" />
+              </label>
+            </div>
+
+            <div class="field-grid three-columns">
+              <label class="field">
+                <span>Room</span>
+                <input type="text" id="item-room" placeholder="Bedroom, office..." />
+              </label>
+
+              <label class="field">
+                <span>Dimensions</span>
+                <input type="text" id="item-dimensions" placeholder="120cm x 60cm" />
+              </label>
+
+              <label class="field">
+                <span>Condition</span>
+                <select id="item-condition">
+                  <option value="">Select</option>
+                  <option>Excellent</option>
+                  <option>Good</option>
+                  <option>Fair</option>
+                  <option>Poor</option>
+                </select>
+              </label>
+            </div>
+
+            <div class="field-grid two-columns">
+              <fieldset class="field fieldset compact-fieldset">
+                <legend>Reuse?</legend>
+                <div class="radio-group">
+                  <label><input type="radio" name="itemReuse" value="Yes" /> Yes</label>
+                  <label><input type="radio" name="itemReuse" value="No" /> No</label>
+                </div>
+              </fieldset>
+
+              <label class="field">
+                <span>Optional photo URL</span>
+                <input type="url" id="item-photo" placeholder="https://example.com/item.jpg" />
+              </label>
+            </div>
+
+            <div class="field-group">
+              <label class="field">
+                <span>Notes</span>
+                <textarea id="item-notes" rows="3" placeholder="Any notes about the item?"></textarea>
+              </label>
+            </div>
+
+            <div class="button-row">
+              <button type="submit" class="primary-btn">Add inventory item</button>
+            </div>
+          </form>
+
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Item</th>
+                  <th>Category</th>
+                  <th>Qty</th>
+                  <th>Room</th>
+                  <th>Dimensions</th>
+                  <th>Condition</th>
+                  <th>Reuse</th>
+                  <th>Notes</th>
+                </tr>
+              </thead>
+              <tbody id="inventory-table-body"></tbody>
+            </table>
+          </div>
+        </section>
+
+        <section id="site-survey" class="content-card">
+          <div class="section-heading">
+            <div>
+              <p class="eyebrow">Section 3</p>
+              <h3>Space / Site Survey</h3>
+            </div>
+            <span class="badge">Survey data</span>
+          </div>
+
+          <form id="site-survey-form" class="stack-form">
+            <div class="field-grid three-columns">
+              <label class="field">
+                <span>Room name</span>
+                <input type="text" id="site-room-name" placeholder="Living room, study nook..." />
+              </label>
+
+              <label class="field">
+                <span>Approximate dimensions</span>
+                <input type="text" id="site-dimensions" placeholder="3.5m x 4.2m" />
+              </label>
+
+              <label class="field">
+                <span>Area</span>
+                <input type="text" id="site-area" placeholder="14.7 sq m" />
+              </label>
+            </div>
+
+            <div class="field-grid four-columns">
+              <label class="field">
+                <span>Doors</span>
+                <input type="number" id="site-doors" min="0" value="0" />
+              </label>
+
+              <label class="field">
+                <span>Windows</span>
+                <input type="number" id="site-windows" min="0" value="0" />
+              </label>
+
+              <label class="field">
+                <span>Stairs</span>
+                <input type="number" id="site-stairs" min="0" value="0" />
+              </label>
+
+              <label class="field">
+                <span>Ceiling height</span>
+                <input type="text" id="site-ceiling" placeholder="2.8m" />
+              </label>
+            </div>
+
+            <div class="field-grid three-columns">
+              <label class="field">
+                <span>Natural lighting</span>
+                <select id="site-lighting">
+                  <option value="">Select</option>
+                  <option>Excellent</option>
+                  <option>Good</option>
+                  <option>Moderate</option>
+                  <option>Poor</option>
+                </select>
+              </label>
+
+              <label class="field">
+                <span>Ventilation</span>
+                <select id="site-ventilation">
+                  <option value="">Select</option>
+                  <option>Excellent</option>
+                  <option>Good</option>
+                  <option>Moderate</option>
+                  <option>Poor</option>
+                </select>
+              </label>
+
+              <label class="field">
+                <span>Noise</span>
+                <select id="site-noise">
+                  <option value="">Select</option>
+                  <option>Low</option>
+                  <option>Moderate</option>
+                  <option>High</option>
+                </select>
+              </label>
+            </div>
+
+            <div class="field-grid two-columns">
+              <label class="field">
+                <span>Views</span>
+                <textarea id="site-views" rows="2" placeholder="Outdoor, courtyard, street, skyline..."></textarea>
+              </label>
+
+              <label class="field">
+                <span>Other observations</span>
+                <textarea id="site-observations" rows="2" placeholder="Notes about built-ins, circulation, partitions, etc."></textarea>
+              </label>
+            </div>
+
+            <div class="field-grid three-columns">
+              <label class="field">
+                <span>Electrical outlets</span>
+                <input type="text" id="site-outlets" placeholder="2 wall outlets, 1 floor outlet" />
+              </label>
+
+              <label class="field">
+                <span>Plumbing</span>
+                <input type="text" id="site-plumbing" placeholder="Near sink or no plumbing" />
+              </label>
+
+              <label class="field">
+                <span>Mechanical systems</span>
+                <input type="text" id="site-mechanical" placeholder="Aircon, exhaust fan, heater" />
+              </label>
+            </div>
+
+            <div class="field-grid two-columns">
+              <label class="field">
+                <span>Router / communication devices</span>
+                <input type="text" id="site-router" placeholder="Router location, signal strength" />
+              </label>
+
+              <label class="field">
+                <span>Built-ins / partitions</span>
+                <input type="text" id="site-builtins" placeholder="Cabinets, shelves, divider walls" />
+              </label>
+            </div>
+
+            <div class="button-row">
+              <button type="submit" class="primary-btn">Add room survey</button>
+            </div>
+          </form>
+
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Room</th>
+                  <th>Dimensions</th>
+                  <th>Area</th>
+                  <th>Doors</th>
+                  <th>Windows</th>
+                  <th>Lighting</th>
+                  <th>Ventilation</th>
+                  <th>Noise</th>
+                </tr>
+              </thead>
+              <tbody id="site-survey-table-body"></tbody>
+            </table>
+          </div>
+        </section>
+
+        <section id="photos" class="content-card">
+          <div class="section-heading">
+            <div>
+              <p class="eyebrow">Section 4</p>
+              <h3>Photo Documentation</h3>
+            </div>
+            <span class="badge">Image records</span>
+          </div>
+
+          <form id="photo-form" class="stack-form">
+            <div class="field-grid three-columns">
+              <label class="field">
+                <span>Image URL</span>
+                <input type="url" id="photo-url" placeholder="https://example.com/photo.jpg" required />
+              </label>
+
+              <label class="field">
+                <span>Location</span>
+                <input type="text" id="photo-location" placeholder="Bedroom, studio, site entrance" />
+              </label>
+
+              <label class="field">
+                <span>Category</span>
+                <select id="photo-category">
+                  <option value="">Select</option>
+                  <option>Room</option>
+                  <option>Observation</option>
+                  <option>Furniture</option>
+                  <option>Site analysis</option>
+                  <option>Other</option>
+                </select>
+              </label>
+            </div>
+
+            <div class="field-group">
+              <label class="field">
+                <span>Description / caption</span>
+                <textarea id="photo-caption" rows="3" placeholder="Describe what this image shows and why it matters."></textarea>
+              </label>
+            </div>
+
+            <div class="button-row">
+              <button type="submit" class="primary-btn">Add photo</button>
+            </div>
+          </form>
+
+          <div id="photo-gallery" class="photo-gallery"></div>
+        </section>
+
+        <section id="floor-plan" class="content-card">
+          <div class="section-heading">
+            <div>
+              <p class="eyebrow">Section 5</p>
+              <h3>Floor Plan</h3>
+            </div>
+            <span class="badge">Spatial concept</span>
+          </div>
+
+          <div class="floor-plan-layout">
+            <form id="floor-plan-form" class="stack-form floor-plan-form">
+              <div class="field-grid two-columns">
+                <label class="field">
+                  <span>Room name</span>
+                  <input type="text" id="floor-room-name" placeholder="Bedroom, studio, dining" />
+                </label>
+
+                <label class="field">
+                  <span>Position X</span>
+                  <input type="number" id="floor-room-x" min="0" max="900" value="80" />
+                </label>
+              </div>
+
+              <div class="field-grid two-columns">
+                <label class="field">
+                  <span>Position Y</span>
+                  <input type="number" id="floor-room-y" min="0" max="600" value="80" />
+                </label>
+
+                <label class="field">
+                  <span>Width</span>
+                  <input type="number" id="floor-room-width" min="80" max="360" value="180" />
+                </label>
+              </div>
+
+              <div class="field-grid two-columns">
+                <label class="field">
+                  <span>Height</span>
+                  <input type="number" id="floor-room-height" min="80" max="260" value="140" />
+                </label>
+
+                <div class="field">
+                  <span>Action</span>
+                  <button type="submit" class="primary-btn">Add room</button>
+                </div>
+              </div>
+
+              <div class="field-grid two-columns">
+                <label class="field checkbox-inline">
+                  <input type="checkbox" id="snap-to-grid" checked />
+                  <span>Snap to grid</span>
+                </label>
+
+                <label class="field checkbox-inline">
+                  <input type="checkbox" id="snap-to-edge" checked />
+                  <span>Snap to edge</span>
+                </label>
+              </div>
+
+              <div class="field-grid two-columns">
+                <label class="field checkbox-inline">
+                  <input type="checkbox" id="show-floor-dimensions" checked />
+                  <span>Show dimensions</span>
+                </label>
+
+                <label class="field checkbox-inline">
+                  <input type="checkbox" id="furniture-symbols-only" checked />
+                  <span>Furniture symbols only</span>
+                </label>
+              </div>
+
+              <label class="field">
+                <span>Text size</span>
+                <select id="floor-plan-text-size">
+                  <option value="small">Small</option>
+                  <option value="medium" selected>Medium</option>
+                  <option value="large">Large</option>
+                </select>
+              </label>
+
+              <div class="field-group">
+                <span class="field-label">Furniture tools</span>
+                <div class="furniture-tools" aria-label="Furniture tools">
+                  <button type="button" class="furniture-tool active" data-furniture="bed">🛏️</button>
+                  <button type="button" class="furniture-tool" data-furniture="desk">🖥️</button>
+                  <button type="button" class="furniture-tool" data-furniture="chair">🪑</button>
+                  <button type="button" class="furniture-tool" data-furniture="sofa">🛋️</button>
+                  <button type="button" class="furniture-tool" data-furniture="table">🪵</button>
+                  <button type="button" class="furniture-tool" data-furniture="storage">🗄️</button>
+                </div>
+              </div>
+
+              <div class="field-group">
+                <button id="delete-selected-floor-item" type="button" class="danger-btn small-btn">Delete selected item</button>
+              </div>
+            </form>
+
+            <div class="floor-plan-panel">
+              <div class="floor-plan-toolbar">
+                <span class="badge">Plan canvas</span>
+                <button id="clear-floor-plan" type="button" class="secondary-btn small-btn">Clear all</button>
+                <button id="export-floor-plan-png" type="button" class="secondary-btn small-btn">Export PNG</button>
+              </div>
+              <div class="canvas-wrap">
+                <svg id="floor-plan-svg" viewBox="0 0 1000 700" role="img" aria-label="Floor plan sketch"></svg>
+                <div id="floor-plan-label-editor" class="floor-plan-label-editor hidden">
+                  <input type="text" id="floor-plan-label-input" maxlength="28" aria-label="Room label" />
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section id="bubble-diagram" class="content-card">
+          <div class="section-heading">
+            <div>
+              <p class="eyebrow">Section 6</p>
+              <h3>Bubble Diagram</h3>
+            </div>
+            <span class="badge">Space relationships</span>
+          </div>
+
+          <form id="bubble-diagram-form" class="stack-form">
+            <label class="field">
+              <span>Diagram title</span>
+              <input type="text" id="bubble-diagram-title" placeholder="Example: Core activity relationships" />
+            </label>
+
+            <div class="field-grid two-columns">
+              <label class="field">
+                <span>Add bubble</span>
+                <input type="text" id="bubble-name-input" placeholder="New bubble name" />
+              </label>
+
+              <div class="field">
+                <span>Actions</span>
+                <div class="button-row">
+                  <button type="button" id="add-bubble-btn" class="primary-btn small-btn">Add bubble</button>
+                  <button type="button" id="delete-bubble-btn" class="danger-btn small-btn">Delete selected</button>
+                </div>
+              </div>
+            </div>
+
+            <div class="button-row">
+              <button type="submit" class="primary-btn">Update diagram</button>
+            </div>
+          </form>
+
+          <div id="bubble-diagram-output" class="bubble-diagram-output"></div>
+        </section>
+
+        <section id="prox-matrix" class="content-card">
+          <div class="section-heading">
+            <div>
+              <p class="eyebrow">Section 7</p>
+              <h3>Proximity Matrix</h3>
+            </div>
+            <span class="badge">Adjacency rating</span>
+          </div>
+
+          <div id="proximity-matrix-table"></div>
+        </section>
+
+        <section id="visualization" class="content-card">
+          <div class="section-heading">
+            <div>
+              <p class="eyebrow">Section 8</p>
+              <h3>Data Visualization</h3>
+            </div>
+            <span class="badge">Observation patterns</span>
+          </div>
+
+          <div id="visualization-chart" class="visualization-chart"></div>
+        </section>
+
+        <section id="findings" class="content-card">
+          <div class="section-heading">
+            <div>
+              <p class="eyebrow">Section 9</p>
+              <h3>Findings</h3>
+            </div>
+            <span class="badge">Interpretation</span>
+          </div>
+
+          <form id="findings-form" class="stack-form">
+            <label class="field">
+              <span>Key findings</span>
+              <textarea id="findings-key" rows="3" placeholder="Summarise the strongest patterns from your observations."></textarea>
+            </label>
+            <label class="field">
+              <span>Constraints</span>
+              <textarea id="findings-constraints" rows="3" placeholder="List limitations or pressures affecting the space."></textarea>
+            </label>
+            <label class="field">
+              <span>Opportunities</span>
+              <textarea id="findings-opportunities" rows="3" placeholder="Describe useful opportunities or design advantages."></textarea>
+            </label>
+            <label class="field">
+              <span>Recommendations</span>
+              <textarea id="findings-recommendations" rows="3" placeholder="State practical recommendations based only on your research."></textarea>
+            </label>
+            <div class="button-row">
+              <button type="submit" class="primary-btn">Save findings</button>
+            </div>
+          </form>
+
+          <div id="findings-summary"></div>
+        </section>
+
+        <section id="conclusion" class="content-card">
+          <div class="section-heading">
+            <div>
+              <p class="eyebrow">Section 10</p>
+              <h3>Conclusion</h3>
+            </div>
+            <span class="badge">Final synthesis</span>
+          </div>
+
+          <form id="conclusion-form" class="stack-form">
+            <label class="field">
+              <span>Conclusion summary</span>
+              <textarea id="conclusion-summary-input" rows="4" placeholder="Give a concise conclusion based on the research evidence."></textarea>
+            </label>
+            <label class="field">
+              <span>Recommended design direction</span>
+              <textarea id="conclusion-recommendation" rows="3" placeholder="State the direction you recommend for the space."></textarea>
+            </label>
+            <div class="button-row">
+              <button type="submit" class="primary-btn">Save conclusion</button>
+            </div>
+          </form>
+
+          <div id="conclusion-summary"></div>
+        </section>
+
+        <section id="report-preview" class="content-card">
+          <div class="section-heading">
+            <div>
+              <p class="eyebrow">Section 11</p>
+              <h3>Report Preview</h3>
+            </div>
+            <span class="badge">A4 ready</span>
+          </div>
+
+          <div id="report-preview-content" class="report-preview-container"></div>
+        </section>
+
+        <section id="export" class="content-card">
+          <div class="section-heading">
+            <div>
+              <p class="eyebrow">Section 12</p>
+              <h3>Export PDF</h3>
+            </div>
+            <span class="badge">Print to PDF</span>
+          </div>
+
+          <button id="export-report-pdf" type="button" class="primary-btn">Export A4 PDF</button>
+        </section>
+      </main>
+    </div>
+
+    <script src="app.js"></script>
+  </body>
+</html>

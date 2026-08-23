@@ -1,0 +1,5 @@
+# Ignore common local environment files
+.DS_Store
+node_modules/
+.vscode/
+*.log
