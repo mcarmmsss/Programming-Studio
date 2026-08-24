@@ -1144,6 +1144,28 @@ function buildBubbleDiagramLayout() {
   `;
 }
 
+// Redraws just the SVG lines touching a node while it's being dragged/resized, so connections keep following live.
+function updateConnectedLinePositions(board, nodeId) {
+  const nodes = state.analysis.bubbleNodes || [];
+  const relatedLinks = (state.analysis.bubbleLinks || []).filter(
+    (link) => link.from === nodeId || link.to === nodeId
+  );
+
+  relatedLinks.forEach((link) => {
+    const lineElement = board.querySelector(`.bubble-lines line[data-link-id="${link.id}"]`);
+    if (!lineElement) return;
+
+    const fromNode = nodes.find((item) => item.id === link.from);
+    const toNode = nodes.find((item) => item.id === link.to);
+    if (!fromNode || !toNode) return;
+
+    lineElement.setAttribute("x1", fromNode.x + fromNode.size / 2);
+    lineElement.setAttribute("y1", fromNode.y + fromNode.size / 2);
+    lineElement.setAttribute("x2", toNode.x + toNode.size / 2);
+    lineElement.setAttribute("y2", toNode.y + toNode.size / 2);
+  });
+}
+
 // Ensures every saved link has an id/width/style/color, defaulting older data.
 function normalizeBubbleLink(link) {
   return {
@@ -1376,6 +1398,8 @@ function renderBubbleDiagram() {
       nodeElement.style.width = `${node.size}px`;
       nodeElement.style.height = `${node.size}px`;
     }
+
+    updateConnectedLinePositions(board, node.id);
 
     saveProject();
   };

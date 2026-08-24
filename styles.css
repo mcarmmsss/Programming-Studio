@@ -756,7 +756,7 @@ button {
   display: grid;
   place-items: center;
   border-radius: 50%;
-  background: rgba(94, 143, 110, 0.18);
+  background: linear-gradient(rgba(94, 143, 110, 0.22), rgba(94, 143, 110, 0.22)), #eef6f0;
   border: 2px solid rgba(61, 109, 79, 0.35);
   color: var(--accent-deep);
   font-size: 0.72rem;
