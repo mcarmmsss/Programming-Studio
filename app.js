@@ -5,6 +5,7 @@
 const STORAGE_KEY = "programmingStudioProject";
 const PROJECTS_STORAGE_KEY = "programmingStudioProjects";
 const ACTIVE_PROJECT_KEY = "programmingStudioActiveProject";
+const SIDEBAR_COLLAPSED_KEY = "programmingStudioSidebarCollapsed";
 
 const interviewQuestionLibrary = {
   "Routine & Activities": [
@@ -2103,11 +2104,18 @@ function attachReportExportListeners() {
 function attachSidebarToggle() {
   if (!sidebarToggle) return;
 
-  sidebarToggle.addEventListener("click", () => {
-    const shell = document.querySelector(".app-shell");
-    if (!shell) return;
+  const shell = document.querySelector(".app-shell");
+  if (!shell) return;
 
+  const savedCollapsed = localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === "true";
+  shell.classList.toggle("sidebar-collapsed", savedCollapsed);
+  sidebarToggle.setAttribute("aria-expanded", String(!savedCollapsed));
+  sidebarToggle.setAttribute("aria-controls", "project-navigation");
+  sidebarToggle.title = savedCollapsed ? "Open sidebar" : "Close sidebar";
+
+  sidebarToggle.addEventListener("click", () => {
     const isCollapsed = shell.classList.toggle("sidebar-collapsed");
+    localStorage.setItem(SIDEBAR_COLLAPSED_KEY, String(isCollapsed));
     sidebarToggle.setAttribute("aria-expanded", String(!isCollapsed));
     sidebarToggle.title = isCollapsed ? "Open sidebar" : "Close sidebar";
   });

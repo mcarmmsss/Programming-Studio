@@ -43,6 +43,8 @@ button {
   display: grid;
   grid-template-columns: var(--sidebar-width) minmax(0, 1fr);
   min-height: 100vh;
+  min-height: 100svh;
+  transition: grid-template-columns 0.2s ease;
 }
 
 .sidebar {
@@ -50,6 +52,8 @@ button {
   border-right: 1px solid var(--line);
   padding: 24px 18px;
   width: var(--sidebar-width);
+  min-width: 0;
+  overflow: hidden;
   transition: width 0.2s ease, padding 0.2s ease;
 }
 
@@ -131,6 +135,7 @@ button {
 
 .main-panel {
   padding: 28px;
+  min-width: 0;
 }
 
 .topbar {
@@ -1131,6 +1136,10 @@ th {
   padding-right: 10px;
 }
 
+.app-shell.sidebar-collapsed .nav-item {
+  width: 100%;
+}
+
 .app-shell.sidebar-collapsed .brand-copy {
   display: none;
 }
@@ -1154,12 +1163,35 @@ th {
 @media (max-width: 980px) {
   .app-shell {
     grid-template-columns: 1fr;
+    transition: none;
   }
 
   .sidebar {
+    width: 100%;
     border-right: none;
     border-bottom: 1px solid var(--line);
     padding: 16px 14px 12px;
+  }
+
+  .app-shell.sidebar-collapsed .sidebar {
+    width: 100%;
+    padding: 10px 14px;
+  }
+
+  .app-shell.sidebar-collapsed .brand-block {
+    margin-bottom: 0;
+  }
+
+  .app-shell.sidebar-collapsed .sidebar-nav {
+    display: none;
+  }
+
+  .app-shell.sidebar-collapsed .brand-copy {
+    display: block;
+  }
+
+  .app-shell.sidebar-collapsed .sidebar-toggle {
+    margin: 0;
   }
 
   .brand-block {
