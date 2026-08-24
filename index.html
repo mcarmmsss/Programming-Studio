@@ -34,15 +34,23 @@
         </div>
 
         <nav id="project-navigation" class="sidebar-nav" aria-label="Project sections">
+          <span class="nav-group-label">Overview</span>
+          <button class="nav-item" data-section="project-summary">Project Summary</button>
+
+          <span class="nav-group-label">Research</span>
           <button class="nav-item active" data-section="user-profile">User Profile</button>
           <button class="nav-item" data-section="observation-log">Observation Log</button>
           <button class="nav-item" data-section="interview">Interview</button>
           <button class="nav-item" data-section="site-survey">Space / Site Survey</button>
           <button class="nav-item" data-section="inventory">Furniture &amp; Equipment</button>
           <button class="nav-item" data-section="photos">Photos</button>
-          <button class="nav-item" data-section="floor-plan">Floor Plan</button>
+
+          <span class="nav-group-label">Spatial analysis</span>
           <button class="nav-item" data-section="bubble-diagram">Bubble Diagram</button>
           <button class="nav-item" data-section="prox-matrix">Proximity Matrix</button>
+          <button class="nav-item" data-section="floor-plan">Floor Plan</button>
+
+          <span class="nav-group-label">Report</span>
           <button class="nav-item" data-section="visualization">Data Visualization</button>
           <button class="nav-item" data-section="findings">Findings</button>
           <button class="nav-item" data-section="conclusion">Conclusion</button>
@@ -60,6 +68,9 @@
 
           <div class="topbar-actions">
             <button id="switch-project-btn" class="secondary-btn" type="button">Switch project</button>
+            <button id="export-data-btn" class="secondary-btn" type="button">Export data</button>
+            <button id="import-data-btn" class="secondary-btn" type="button">Import data</button>
+            <input type="file" id="import-data-input" accept="application/json" hidden />
             <span id="save-status" class="save-status">Auto-save ready</span>
             <button id="manual-save" class="secondary-btn" type="button">Save now</button>
             <button id="reset-project" class="danger-btn" type="button">Reset project</button>
@@ -293,8 +304,9 @@
               </label>
 
               <label class="field">
-                <span>Optional photo URL</span>
-                <input type="url" id="observation-photo" placeholder="https://example.com/photo.jpg" />
+                <span>Optional photo</span>
+                <input type="text" id="observation-photo" placeholder="https://example.com/photo.jpg" />
+                <input type="file" id="observation-photo-file" class="image-upload-input" accept="image/*" />
               </label>
             </div>
 
@@ -355,8 +367,11 @@
           <div class="interview-layout">
             <div class="panel-block">
               <h4>Suggested questions</h4>
-              <p class="helper-text">Select questions, then add them to your interview flow.</p>
-              <div id="interview-categories" class="category-list"></div>
+              <details class="interview-suggestions">
+                <summary>Browse suggested questions</summary>
+                <p class="helper-text">Choose a question to add it to your interview flow.</p>
+                <div id="interview-categories" class="category-list"></div>
+              </details>
               <div class="custom-question-row">
                 <input id="custom-question-input" type="text" placeholder="Add a custom question" />
                 <button id="add-custom-question" type="button" class="secondary-btn small-btn">Add custom</button>
@@ -365,7 +380,7 @@
 
             <div class="panel-block">
               <h4>Interview flow &amp; answers</h4>
-              <p class="helper-text">Type your answers directly into each question. The answers appear in the log below as you write.</p>
+              <p class="helper-text">Answer one question at a time, then press Save answer. Saved answers appear in the complete log below.</p>
               <div id="interview-question-list" class="question-list"></div>
               <div class="interview-log-block">
                 <h5>Answer log</h5>
@@ -373,6 +388,18 @@
               </div>
             </div>
           </div>
+        </section>
+
+        <section id="project-summary" class="content-card">
+          <div class="section-heading">
+            <div>
+              <p class="eyebrow">Overview</p>
+              <h3>Project Summary</h3>
+            </div>
+            <span class="badge">Logged research</span>
+          </div>
+          <p class="helper-text">A single view of the information currently saved in this project.</p>
+          <div id="project-summary-content" class="summary-grid"></div>
         </section>
 
         <section id="inventory" class="content-card">
@@ -449,8 +476,9 @@
               </fieldset>
 
               <label class="field">
-                <span>Optional photo URL</span>
-                <input type="url" id="item-photo" placeholder="https://example.com/item.jpg" />
+                <span>Optional photo</span>
+                <input type="text" id="item-photo" placeholder="https://example.com/item.jpg" />
+                <input type="file" id="item-photo-file" class="image-upload-input" accept="image/*" />
               </label>
             </div>
 
@@ -645,8 +673,9 @@
           <form id="photo-form" class="stack-form">
             <div class="field-grid three-columns">
               <label class="field">
-                <span>Image URL</span>
-                <input type="url" id="photo-url" placeholder="https://example.com/photo.jpg" required />
+                <span>Image URL or upload</span>
+                <input type="text" id="photo-url" placeholder="https://example.com/photo.jpg" />
+                <input type="file" id="photo-url-file" class="image-upload-input" accept="image/*" />
               </label>
 
               <label class="field">
@@ -830,7 +859,34 @@
             </div>
           </form>
 
+          <div class="bubble-connect-toolbar">
+            <span class="badge">Connections</span>
+            <button type="button" id="bubble-connect-toggle" class="secondary-btn small-btn">🔗 Connect mode: Off</button>
+            <label class="inline-field">
+              <span>Width</span>
+              <input type="number" id="bubble-line-width" min="1" max="10" value="2" />
+            </label>
+            <label class="inline-field">
+              <span>Style</span>
+              <select id="bubble-line-style">
+                <option value="solid">Solid</option>
+                <option value="dashed">Dashed</option>
+                <option value="dotted">Dotted</option>
+              </select>
+            </label>
+            <label class="inline-field">
+              <span>Color</span>
+              <input type="color" id="bubble-line-color" value="#5e8f6e" />
+            </label>
+          </div>
+          <p class="helper-text">Turn on Connect mode, then click one bubble and then another to draw a line using the settings above. Click connect mode again to turn it off.</p>
+
           <div id="bubble-diagram-output" class="bubble-diagram-output"></div>
+
+          <div class="panel-block">
+            <h4>Connections</h4>
+            <div id="bubble-connections-list" class="bubble-connections-list"></div>
+          </div>
         </section>
 
         <section id="prox-matrix" class="content-card">

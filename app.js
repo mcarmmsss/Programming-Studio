@@ -75,6 +75,15 @@ const mandatoryQuestions = [
   "In three words, describe your ideal space for your interest or passion."
 ];
 
+function escapeHtml(value) {
+  return String(value ?? "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
+}
+
 const defaultState = {
   profile: {
     name: "",
@@ -116,6 +125,7 @@ const defaultState = {
   },
   analysis: {
     bubbleTitle: "",
+    spaces: [],
     bubbleNodes: [],
     bubbleLinks: [],
     proximityMatrix: {},
@@ -143,6 +153,8 @@ let floorPlanDragState = null;
 let activeFurnitureTool = "bed";
 let selectedFloorPlanItemId = null;
 let selectedBubbleId = null;
+let bubbleConnectMode = false;
+let pendingConnectFromId = null;
 
 const form = document.getElementById("user-profile-form");
 const progressFill = document.getElementById("progress-fill");
@@ -263,6 +275,7 @@ function renderAllProjectViews() {
   renderObservationTable();
   renderInterviewCategories();
   renderInterviewQuestions();
+  renderProjectSummary();
   renderInventoryTable();
   renderSiteSurveyTable();
   renderPhotoGallery();
@@ -289,47 +302,55 @@ function loadProject() {
       return seed;
     }
 
-    const parsed = JSON.parse(stored);
-    return {
-      ...structuredClone(defaultState),
-      ...parsed,
-      profile: {
-        ...structuredClone(defaultState.profile),
-        ...parsed.profile
-      },
-      interview: {
-        ...structuredClone(defaultState.interview),
-        ...parsed.interview,
-        questions: Array.isArray(parsed.interview && parsed.interview.questions) ? parsed.interview.questions : structuredClone(defaultState.interview.questions),
-        answers: parsed.interview && parsed.interview.answers ? parsed.interview.answers : {},
-        log: Array.isArray(parsed.interview && parsed.interview.log) ? parsed.interview.log : []
-      },
-      floorPlanSettings: {
-        ...structuredClone(defaultState.floorPlanSettings),
-        ...parsed.floorPlanSettings
-      },
-      analysis: {
-        ...structuredClone(defaultState.analysis),
-        ...parsed.analysis,
-        findings: {
-          ...structuredClone(defaultState.analysis.findings),
-          ...(parsed.analysis || {}).findings
-        },
-        conclusion: {
-          ...structuredClone(defaultState.analysis.conclusion),
-          ...(parsed.analysis || {}).conclusion
-        }
-      },
-      meta: {
-        ...structuredClone(defaultState.meta),
-        ...parsed.meta
-      }
-    };
+    return mergeWithDefaultState(JSON.parse(stored));
   } catch (error) {
     console.warn("Could not load project. Using default values.", error);
     return structuredClone(defaultState);
   }
 }
+
+// Fills in any fields missing from an older/imported save so the app never breaks on partial data.
+function mergeWithDefaultState(parsed) {
+  parsed = parsed && typeof parsed === "object" ? parsed : {};
+
+  return {
+    ...structuredClone(defaultState),
+    ...parsed,
+    profile: {
+      ...structuredClone(defaultState.profile),
+      ...parsed.profile
+    },
+    interview: {
+      ...structuredClone(defaultState.interview),
+      ...parsed.interview,
+      questions: Array.isArray(parsed.interview && parsed.interview.questions) ? parsed.interview.questions : structuredClone(defaultState.interview.questions),
+      answers: parsed.interview && parsed.interview.answers ? parsed.interview.answers : {},
+      log: Array.isArray(parsed.interview && parsed.interview.log) ? parsed.interview.log : []
+    },
+    floorPlanSettings: {
+      ...structuredClone(defaultState.floorPlanSettings),
+      ...parsed.floorPlanSettings
+    },
+    analysis: {
+      ...structuredClone(defaultState.analysis),
+      ...parsed.analysis,
+      spaces: Array.isArray((parsed.analysis || {}).spaces) ? parsed.analysis.spaces : [],
+      findings: {
+        ...structuredClone(defaultState.analysis.findings),
+        ...(parsed.analysis || {}).findings
+      },
+      conclusion: {
+        ...structuredClone(defaultState.analysis.conclusion),
+        ...(parsed.analysis || {}).conclusion
+      }
+    },
+    meta: {
+      ...structuredClone(defaultState.meta),
+      ...parsed.meta
+    }
+  };
+}
+
 
 // 2) Save the current state to localStorage.
 function saveProject() {
@@ -354,6 +375,7 @@ function saveProject() {
   updateSaveMessage();
   updateDashboardProgress();
   renderProjectList();
+  renderProjectSummary();
 }
 
 // 3) Update the little “saved” label in the header.
@@ -566,10 +588,10 @@ function renderInterviewCategories() {
             ${questions
               .map(
                 (question) => `
-                  <label class="choice-row">
-                    <input type="checkbox" class="suggested-question-check" value="${question}" />
-                    <span>${question}</span>
-                  </label>
+                  <div class="suggested-question-row">
+                    <span>${escapeHtml(question)}</span>
+                    <button type="button" class="secondary-btn small-btn add-question-button" data-question="${escapeHtml(question)}">Add question</button>
+                  </div>
                 `
               )
               .join("")}
@@ -578,6 +600,12 @@ function renderInterviewCategories() {
       `
     )
     .join("");
+
+  container.querySelectorAll(".add-question-button").forEach((button) => {
+    button.addEventListener("click", () => {
+      addInterviewQuestion(button.dataset.question);
+    });
+  });
 }
 
 function renderInterviewLog() {
@@ -592,13 +620,12 @@ function renderInterviewLog() {
   }
 
   container.innerHTML = entries
-    .slice(0, 8)
     .map(
       (entry) => `
         <div class="interview-log-item">
-          <strong>${entry.question}</strong>
-          <span>${entry.answer}</span>
-          <small>${entry.date}</small>
+          <strong>${escapeHtml(entry.question)}</strong>
+          <span>${escapeHtml(entry.answer)}</span>
+          <small>${escapeHtml(entry.date)}</small>
         </div>
       `
     )
@@ -611,13 +638,19 @@ function logInterviewAnswer(questionId, value) {
   if (!question || !trimmed) return;
 
   const entry = {
+    questionId,
     id: Date.now(),
     question: question.text,
     answer: trimmed,
     date: new Date().toLocaleString()
   };
 
-  state.interview.log = [entry, ...(state.interview.log || [])].slice(0, 12);
+  const existingIndex = (state.interview.log || []).findIndex((item) => item.questionId === questionId);
+  if (existingIndex >= 0) {
+    state.interview.log[existingIndex] = entry;
+  } else {
+    state.interview.log = [entry, ...(state.interview.log || [])];
+  }
 }
 
 function renderInterviewQuestions() {
@@ -651,7 +684,8 @@ function renderInterviewQuestions() {
                 `
             }
           </div>
-          <textarea data-question-id="${question.id}" class="question-answer" rows="2" placeholder="Enter answer...">${answer}</textarea>
+          <textarea data-question-id="${question.id}" class="question-answer" rows="3" placeholder="Write the participant's answer here...">${answer}</textarea>
+          <button type="button" class="primary-btn small-btn save-answer" data-question-id="${question.id}">Save answer</button>
         </div>
       `;
     })
@@ -674,7 +708,20 @@ function renderInterviewQuestions() {
       const questionId = textarea.dataset.questionId;
       const value = textarea.value;
       state.interview.answers[questionId] = value;
-      logInterviewAnswer(questionId, value);
+      saveProject();
+    });
+  });
+
+  container.querySelectorAll(".save-answer").forEach((button) => {
+    button.addEventListener("click", () => {
+      const questionId = button.dataset.questionId;
+      const textarea = container.querySelector(`[data-question-id="${questionId}"].question-answer`);
+      if (!textarea || !textarea.value.trim()) {
+        alert("Write an answer before saving it.");
+        return;
+      }
+      state.interview.answers[questionId] = textarea.value;
+      logInterviewAnswer(questionId, textarea.value);
       saveProject();
       renderInterviewLog();
     });
@@ -683,24 +730,74 @@ function renderInterviewQuestions() {
   renderInterviewLog();
 }
 
-function addSelectedInterviewQuestions() {
-  const selected = Array.from(document.querySelectorAll(".suggested-question-check:checked"))
-    .map((checkbox) => checkbox.value)
-    .filter((value) => value);
+function renderProjectSummary() {
+  const container = document.getElementById("project-summary-content");
+  if (!container) return;
 
-  if (!selected.length) return;
+  const profile = state.profile;
+  const furniture = [...(profile.existingFurniture || []), profile.existingFurnitureCustom].filter(Boolean).join(", ");
+  const profileItems = [
+    ["Name", profile.name],
+    ["Occupation", profile.occupation],
+    ["Interests", profile.interests],
+    ["Household size", profile.householdSize],
+    ["Devices", profile.devices],
+    ["Existing furniture", furniture]
+  ];
+  const summaryCards = [
+    { title: "User profile", target: "user-profile", count: profileItems.filter((item) => item[1]).length, items: profileItems },
+    { title: "Observations", target: "observation-log", count: state.observations.length, items: state.observations.slice(-5).map((item) => [item.activity || "Observation", item.finding || item.room || "No finding added"]) },
+    { title: "Interview answers", target: "interview", count: (state.interview.log || []).length, items: (state.interview.log || []).slice(0, 5).map((item) => [item.question, item.answer]) },
+    { title: "Inventory", target: "inventory", count: state.inventory.length, items: state.inventory.slice(-5).map((item) => [item.name, `${item.quantity || 1} ${item.category || "item"}`]) },
+    { title: "Site survey", target: "site-survey", count: state.siteSurvey.length, items: state.siteSurvey.slice(-5).map((item) => [item.name, item.dimensions || item.area || "No dimensions added"]) },
+    { title: "Photos", target: "photos", count: state.photos.length, items: state.photos.slice(-5).map((item) => [item.location || "Photo", item.caption || item.category || "No caption added"]) },
+    { title: "Spatial studies", target: "bubble-diagram", count: (state.analysis.bubbleNodes || []).length + (state.floorPlan || []).length, items: [
+      ["Bubble diagram", `${(state.analysis.bubbleNodes || []).length} bubbles`],
+      ["Floor plan", `${(state.floorPlan || []).length} items`]
+    ] },
+    { title: "Findings & conclusion", target: "findings", count: [state.analysis.findings.keyFindings, state.analysis.findings.constraints, state.analysis.findings.opportunities, state.analysis.findings.recommendations, state.analysis.conclusion.summary, state.analysis.conclusion.recommendation].filter((value) => String(value || "").trim()).length, items: [
+      ["Key findings", state.analysis.findings.keyFindings],
+      ["Constraints", state.analysis.findings.constraints],
+      ["Opportunities", state.analysis.findings.opportunities],
+      ["Conclusion", state.analysis.conclusion.summary],
+      ["Design direction", state.analysis.conclusion.recommendation]
+    ].filter((item) => String(item[1] || "").trim()) }
+  ];
 
-  selected.forEach((questionText) => {
-    const alreadyExists = state.interview.questions.some((question) => question.text === questionText);
-    if (!alreadyExists) {
-      state.interview.questions.push(createQuestionRecord(questionText, false));
-    }
+  container.innerHTML = summaryCards.map((card) => `
+    <article class="summary-card" data-summary-target="${card.target || ""}" tabindex="0" role="link">
+      <div class="summary-card-heading">
+        <h4>${escapeHtml(card.title)}</h4>
+        <strong>${card.count}</strong>
+      </div>
+      ${card.items.length ? `<dl>${card.items.map(([label, value]) => `<div><dt>${escapeHtml(label)}</dt><dd>${escapeHtml(value)}</dd></div>`).join("")}</dl>` : '<p class="empty-state">Nothing logged yet.</p>'}
+    </article>
+  `).join("");
+
+  container.querySelectorAll("[data-summary-target]").forEach((card) => {
+    const openTarget = () => {
+      const target = document.getElementById(card.dataset.summaryTarget);
+      if (target) target.scrollIntoView({ behavior: "smooth", block: "start" });
+    };
+
+    card.addEventListener("click", openTarget);
+    card.addEventListener("keydown", (event) => {
+      if (event.key === "Enter" || event.key === " ") {
+        event.preventDefault();
+        openTarget();
+      }
+    });
   });
+}
 
-  document.querySelectorAll(".suggested-question-check:checked").forEach((checkbox) => {
-    checkbox.checked = false;
-  });
+function addInterviewQuestion(questionText) {
+  const value = String(questionText || "").trim();
+  if (!value) return;
 
+  const alreadyExists = state.interview.questions.some((question) => question.text === value);
+  if (alreadyExists) return;
+
+  state.interview.questions.push(createQuestionRecord(value, false));
   saveProject();
   renderInterviewQuestions();
 }
@@ -833,7 +930,137 @@ function renderPhotoGallery() {
     .join("");
 }
 
+// Shared "spaces" registry: a room/space added in the Floor Plan, Bubble Diagram,
+// or Proximity Matrix is kept in sync across all three via this single list.
+function generateSpaceId() {
+  return `space-${Date.now()}-${Math.floor(Math.random() * 10000)}`;
+}
+
+function ensureSpacesRegistry() {
+  if (!Array.isArray(state.analysis.spaces)) {
+    state.analysis.spaces = [];
+  }
+
+  // Backfill spaces for older saved projects that only had bubble nodes / floor plan rooms.
+  (state.analysis.bubbleNodes || []).forEach((node) => {
+    if (!node.spaceId) {
+      const existing = state.analysis.spaces.find((space) => space.name === node.name);
+      node.spaceId = existing ? existing.id : generateSpaceId();
+    }
+    if (!state.analysis.spaces.some((space) => space.id === node.spaceId)) {
+      state.analysis.spaces.push({ id: node.spaceId, name: node.name || "Space" });
+    }
+  });
+
+  (state.floorPlan || []).forEach((room) => {
+    if (room.isFurniture) return;
+    if (!room.spaceId) {
+      const existing = state.analysis.spaces.find((space) => space.name === room.name);
+      room.spaceId = existing ? existing.id : generateSpaceId();
+    }
+    if (!state.analysis.spaces.some((space) => space.id === room.spaceId)) {
+      state.analysis.spaces.push({ id: room.spaceId, name: room.name || "Room" });
+    }
+  });
+}
+
+// Adds a space and auto-creates the matching Bubble Diagram node + Floor Plan room.
+function addSpace(name, options = {}) {
+  const trimmed = String(name || "").trim();
+  if (!trimmed) return null;
+
+  ensureSpacesRegistry();
+
+  const spaceId = generateSpaceId();
+  state.analysis.spaces.push({ id: spaceId, name: trimmed });
+
+  if (!Array.isArray(state.analysis.bubbleNodes)) state.analysis.bubbleNodes = [];
+  const bubbleIndex = state.analysis.bubbleNodes.length;
+  const bubbleId = `bubble-${Date.now()}-${Math.floor(Math.random() * 10000)}`;
+  state.analysis.bubbleNodes.push({
+    id: bubbleId,
+    spaceId,
+    name: trimmed,
+    x: 120 + (bubbleIndex % 3) * 150,
+    y: 70 + Math.floor(bubbleIndex / 3) * 120,
+    size: 88
+  });
+  selectedBubbleId = bubbleId;
+
+  if (!Array.isArray(state.floorPlan)) state.floorPlan = [];
+  state.floorPlan.push({
+    id: Date.now() + Math.floor(Math.random() * 10000),
+    name: trimmed,
+    spaceId,
+    x: clamp(options.x ?? 80, 40, 900),
+    y: clamp(options.y ?? 80, 40, 620),
+    width: enforceMinimumDimension(options.width ?? 180, 80),
+    height: enforceMinimumDimension(options.height ?? 140, 80),
+    isFurniture: false
+  });
+
+  saveProject();
+  return spaceId;
+}
+
+// Renames a space everywhere it's referenced (space registry, bubble node, floor plan room).
+function renameSpace(spaceId, newName) {
+  if (!spaceId) return;
+  const trimmed = String(newName || "").trim();
+  if (!trimmed) return;
+
+  ensureSpacesRegistry();
+  const space = state.analysis.spaces.find((item) => item.id === spaceId);
+  if (space) space.name = trimmed;
+
+  (state.analysis.bubbleNodes || []).forEach((node) => {
+    if (node.spaceId === spaceId) node.name = trimmed;
+  });
+  (state.floorPlan || []).forEach((room) => {
+    if (room.spaceId === spaceId) room.name = trimmed;
+  });
+
+  saveProject();
+}
+
+// Removes a space and cascades the deletion to its bubble node, floor plan room, links, and matrix cells.
+function deleteSpace(spaceId) {
+  if (!spaceId) return;
+
+  const removedNodeIds = (state.analysis.bubbleNodes || [])
+    .filter((node) => node.spaceId === spaceId)
+    .map((node) => node.id);
+
+  state.analysis.spaces = (state.analysis.spaces || []).filter((space) => space.id !== spaceId);
+  state.analysis.bubbleNodes = (state.analysis.bubbleNodes || []).filter((node) => node.spaceId !== spaceId);
+  state.analysis.bubbleLinks = (state.analysis.bubbleLinks || []).filter(
+    (link) => !removedNodeIds.includes(link.from) && !removedNodeIds.includes(link.to)
+  );
+  state.floorPlan = (state.floorPlan || []).filter((room) => room.spaceId !== spaceId);
+
+  const matrix = state.analysis.proximityMatrix || {};
+  Object.keys(matrix).forEach((key) => {
+    if (key.split("::").includes(spaceId)) {
+      delete matrix[key];
+    }
+  });
+
+  if (selectedBubbleId && removedNodeIds.includes(selectedBubbleId)) {
+    selectedBubbleId = state.analysis.bubbleNodes[0]?.id || null;
+  }
+  if (pendingConnectFromId && removedNodeIds.includes(pendingConnectFromId)) {
+    pendingConnectFromId = null;
+  }
+  if (selectedFloorPlanItemId && !state.floorPlan.some((room) => String(room.id) === selectedFloorPlanItemId)) {
+    selectedFloorPlanItemId = null;
+  }
+
+  saveProject();
+}
+
 function ensureBubbleNodes() {
+  ensureSpacesRegistry();
+
   if (!Array.isArray(state.analysis.bubbleNodes) || !state.analysis.bubbleNodes.length) {
     const labels = [
       "Reception",
@@ -844,52 +1071,40 @@ function ensureBubbleNodes() {
       "Office"
     ];
 
-    state.analysis.bubbleNodes = labels.map((label, index) => ({
-      id: `bubble-${index + 1}`,
-      name: label,
-      x: 80 + (index % 3) * 150,
-      y: 60 + Math.floor(index / 3) * 120,
-      size: 86
-    }));
+    state.analysis.bubbleNodes = labels.map((label, index) => {
+      const spaceId = generateSpaceId();
+      state.analysis.spaces.push({ id: spaceId, name: label });
+      return {
+        id: `bubble-${index + 1}`,
+        spaceId,
+        name: label,
+        x: 80 + (index % 3) * 150,
+        y: 60 + Math.floor(index / 3) * 120,
+        size: 86
+      };
+    });
     selectedBubbleId = state.analysis.bubbleNodes[0]?.id || null;
   }
 
   if (!Array.isArray(state.analysis.bubbleLinks)) {
     state.analysis.bubbleLinks = [];
   }
+  state.analysis.bubbleLinks = state.analysis.bubbleLinks.map(normalizeBubbleLink);
 }
 
 function addBubbleNode(name) {
-  const trimmed = String(name || "").trim();
-  if (!trimmed) return;
-
-  if (!Array.isArray(state.analysis.bubbleNodes)) {
-    state.analysis.bubbleNodes = [];
-  }
-
-  const nextId = `bubble-${Date.now()}`;
-  state.analysis.bubbleNodes.push({
-    id: nextId,
-    name: trimmed,
-    x: 120 + (state.analysis.bubbleNodes.length % 3) * 150,
-    y: 70 + Math.floor(state.analysis.bubbleNodes.length / 3) * 120,
-    size: 88
-  });
-  selectedBubbleId = nextId;
-  saveProject();
-  renderBubbleDiagram();
+  addSpace(name);
+  renderAllProjectViews();
 }
 
 function deleteSelectedBubbleNode() {
   if (!selectedBubbleId || !Array.isArray(state.analysis.bubbleNodes)) return;
 
-  state.analysis.bubbleNodes = state.analysis.bubbleNodes.filter((node) => node.id !== selectedBubbleId);
-  state.analysis.bubbleLinks = (state.analysis.bubbleLinks || []).filter((link) => {
-    return link.from !== selectedBubbleId && link.to !== selectedBubbleId;
-  });
-  selectedBubbleId = state.analysis.bubbleNodes[0]?.id || null;
-  saveProject();
-  renderBubbleDiagram();
+  const node = state.analysis.bubbleNodes.find((item) => item.id === selectedBubbleId);
+  if (!node) return;
+
+  deleteSpace(node.spaceId);
+  renderAllProjectViews();
 }
 
 function buildBubbleDiagramLayout() {
@@ -905,15 +1120,16 @@ function buildBubbleDiagramLayout() {
       const y1 = from.y + from.size / 2;
       const x2 = to.x + to.size / 2;
       const y2 = to.y + to.size / 2;
+      const dashArray = link.style === "dashed" ? "14 8" : link.style === "dotted" ? "1 8" : "";
 
-      return `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="#5e8f6e" stroke-width="2" stroke-linecap="round" opacity="0.7" />`;
+      return `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="${escapeHtml(link.color)}" stroke-width="${link.width}" stroke-linecap="round" ${dashArray ? `stroke-dasharray="${dashArray}"` : ""} data-link-id="${link.id}" />`;
     })
     .join("");
 
   const nodeMarkup = nodes
     .map((node) => `
-      <div class="bubble-node ${selectedBubbleId === node.id ? "selected" : ""}" data-node-id="${node.id}" style="left:${node.x}px; top:${node.y}px; width:${node.size}px; height:${node.size}px;">
-        <span class="bubble-label">${node.name}</span>
+      <div class="bubble-node ${selectedBubbleId === node.id ? "selected" : ""} ${pendingConnectFromId === node.id ? "connect-pending" : ""}" data-node-id="${node.id}" style="left:${node.x}px; top:${node.y}px; width:${node.size}px; height:${node.size}px;">
+        <span class="bubble-label">${escapeHtml(node.name)}</span>
         <button type="button" class="bubble-edit" data-node-id="${node.id}" aria-label="Edit bubble name">✎</button>
         <span class="bubble-resize" data-resize-id="${node.id}" aria-label="Resize node"></span>
       </div>
@@ -928,15 +1144,114 @@ function buildBubbleDiagramLayout() {
   `;
 }
 
+// Ensures every saved link has an id/width/style/color, defaulting older data.
+function normalizeBubbleLink(link) {
+  return {
+    id: link.id || `link-${Date.now()}-${Math.floor(Math.random() * 10000)}`,
+    from: link.from,
+    to: link.to,
+    width: Number.isFinite(Number(link.width)) ? clamp(Number(link.width), 1, 10) : 2,
+    style: ["solid", "dashed", "dotted"].includes(link.style) ? link.style : "solid",
+    color: typeof link.color === "string" && link.color ? link.color : "#5e8f6e"
+  };
+}
+
+function addBubbleLink(fromId, toId) {
+  if (!fromId || !toId || fromId === toId) return;
+  if (!Array.isArray(state.analysis.bubbleLinks)) state.analysis.bubbleLinks = [];
+
+  const alreadyLinked = state.analysis.bubbleLinks.some(
+    (link) => (link.from === fromId && link.to === toId) || (link.from === toId && link.to === fromId)
+  );
+  if (alreadyLinked) return;
+
+  const widthInput = document.getElementById("bubble-line-width");
+  const styleInput = document.getElementById("bubble-line-style");
+  const colorInput = document.getElementById("bubble-line-color");
+
+  state.analysis.bubbleLinks.push(
+    normalizeBubbleLink({
+      from: fromId,
+      to: toId,
+      width: widthInput ? widthInput.value : 2,
+      style: styleInput ? styleInput.value : "solid",
+      color: colorInput ? colorInput.value : "#5e8f6e"
+    })
+  );
+
+  saveProject();
+  renderBubbleDiagram();
+}
+
+function updateBubbleLink(linkId, patch) {
+  const link = (state.analysis.bubbleLinks || []).find((item) => item.id === linkId);
+  if (!link) return;
+
+  Object.assign(link, patch);
+  saveProject();
+  renderBubbleDiagram();
+}
+
+function deleteBubbleLink(linkId) {
+  state.analysis.bubbleLinks = (state.analysis.bubbleLinks || []).filter((link) => link.id !== linkId);
+  saveProject();
+  renderBubbleDiagram();
+}
+
+function renderBubbleConnectionsList() {
+  const container = document.getElementById("bubble-connections-list");
+  if (!container) return;
+
+  const nodes = state.analysis.bubbleNodes || [];
+  const links = state.analysis.bubbleLinks || [];
+
+  if (!links.length) {
+    container.innerHTML = '<p class="empty-state">No connections yet. Turn on Connect mode, then click one bubble and then another to draw a line.</p>';
+    return;
+  }
+
+  container.innerHTML = links
+    .map((link) => {
+      const fromNode = nodes.find((node) => node.id === link.from);
+      const toNode = nodes.find((node) => node.id === link.to);
+      const label = `${escapeHtml(fromNode ? fromNode.name : "?")} \u2192 ${escapeHtml(toNode ? toNode.name : "?")}`;
+
+      return `
+        <div class="bubble-connection-row" data-link-id="${link.id}">
+          <span class="bubble-connection-label">${label}</span>
+          <input type="color" class="link-color-input" data-link-id="${link.id}" value="${link.color}" title="Line color" />
+          <input type="number" min="1" max="10" class="link-width-input" data-link-id="${link.id}" value="${link.width}" title="Line width" />
+          <select class="link-style-input" data-link-id="${link.id}" title="Line style">
+            <option value="solid" ${link.style === "solid" ? "selected" : ""}>Solid</option>
+            <option value="dashed" ${link.style === "dashed" ? "selected" : ""}>Dashed</option>
+            <option value="dotted" ${link.style === "dotted" ? "selected" : ""}>Dotted</option>
+          </select>
+          <button type="button" class="danger-btn small-btn link-delete-btn" data-link-id="${link.id}">Delete</button>
+        </div>
+      `;
+    })
+    .join("");
+
+  container.querySelectorAll(".link-color-input").forEach((input) => {
+    input.addEventListener("change", () => updateBubbleLink(input.dataset.linkId, { color: input.value }));
+  });
+  container.querySelectorAll(".link-width-input").forEach((input) => {
+    input.addEventListener("change", () => updateBubbleLink(input.dataset.linkId, { width: clamp(Number(input.value) || 2, 1, 10) }));
+  });
+  container.querySelectorAll(".link-style-input").forEach((select) => {
+    select.addEventListener("change", () => updateBubbleLink(select.dataset.linkId, { style: select.value }));
+  });
+  container.querySelectorAll(".link-delete-btn").forEach((button) => {
+    button.addEventListener("click", () => deleteBubbleLink(button.dataset.linkId));
+  });
+}
+
 function renameBubbleNode(nodeId, newName) {
   const node = state.analysis.bubbleNodes.find((item) => item.id === nodeId);
   if (!node) return;
 
-  const trimmed = String(newName || "").trim();
-  if (!trimmed) return;
-  node.name = trimmed;
-  saveProject();
-  renderBubbleDiagram();
+  renameSpace(node.spaceId, newName);
+  renderAllProjectViews();
 }
 
 function renderBubbleDiagram() {
@@ -952,6 +1267,14 @@ function renderBubbleDiagram() {
       ${buildBubbleDiagramLayout()}
     </div>
   `;
+
+  renderBubbleConnectionsList();
+
+  const connectToggle = document.getElementById("bubble-connect-toggle");
+  if (connectToggle) {
+    connectToggle.textContent = bubbleConnectMode ? "\ud83d\udd17 Connect mode: On (click two bubbles)" : "\ud83d\udd17 Connect mode: Off";
+    connectToggle.classList.toggle("active", bubbleConnectMode);
+  }
 
   const board = container.querySelector(".bubble-diagram-board");
   if (!board) return;
@@ -972,6 +1295,21 @@ function renderBubbleDiagram() {
 
     nodeElement.addEventListener("pointerdown", (event) => {
       if (event.target.closest(".bubble-edit") || event.target.closest(".bubble-resize")) {
+        return;
+      }
+
+      if (bubbleConnectMode) {
+        event.preventDefault();
+        if (!pendingConnectFromId) {
+          pendingConnectFromId = nodeId;
+        } else if (pendingConnectFromId !== nodeId) {
+          addBubbleLink(pendingConnectFromId, nodeId);
+          pendingConnectFromId = null;
+          return;
+        } else {
+          pendingConnectFromId = null;
+        }
+        renderBubbleDiagram();
         return;
       }
 
@@ -1054,23 +1392,53 @@ function renderBubbleDiagram() {
   };
 }
 
-function getRoomNames() {
-  const names = (state.analysis.bubbleNodes || []).map((node) => node.name).filter(Boolean);
-  if (names.length) return names;
-
-  const fallback = (state.siteSurvey || []).map((room) => room.name).filter(Boolean);
-  return fallback.length ? fallback : ["Reception", "Therapy", "Gym", "Office"];
-}
-
 function normalizeMatrixValue(value) {
   const numeric = Number(value);
   if (!Number.isFinite(numeric)) return 0;
   return Math.max(0, Math.min(2, Math.round(numeric)));
 }
 
-function buildProximityMatrix() {
-  const rooms = getRoomNames();
+// Stable, order-independent key so deleting/reordering spaces can't corrupt unrelated cells.
+function matrixKey(idA, idB) {
+  return [idA, idB].sort().join("::");
+}
+
+// One-time upgrade of older projects that stored matrix cells by row/col index.
+function migrateProximityMatrixKeys() {
+  const spaces = state.analysis.spaces || [];
   const matrix = state.analysis.proximityMatrix || {};
+  const oldKeyPattern = /^\d+-\d+$/;
+  const oldKeys = Object.keys(matrix).filter((key) => oldKeyPattern.test(key));
+  if (!oldKeys.length) return;
+
+  oldKeys.forEach((key) => {
+    const [rowIndex, colIndex] = key.split("-").map(Number);
+    const rowSpace = spaces[rowIndex];
+    const colSpace = spaces[colIndex];
+    if (rowSpace && colSpace) {
+      matrix[matrixKey(rowSpace.id, colSpace.id)] = matrix[key];
+    }
+    delete matrix[key];
+  });
+}
+
+function buildProximityMatrix() {
+  ensureSpacesRegistry();
+  migrateProximityMatrixKeys();
+
+  const spaces = state.analysis.spaces || [];
+  const matrix = state.analysis.proximityMatrix || {};
+
+  const addSpaceForm = `
+    <div class="matrix-add-space-row">
+      <input type="text" id="matrix-add-space-input" placeholder="Add a space (e.g. Kitchen)" />
+      <button type="button" id="matrix-add-space-btn" class="primary-btn small-btn">Add space</button>
+    </div>
+  `;
+
+  if (!spaces.length) {
+    return `${addSpaceForm}<p class="empty-state">No spaces yet. Add one above, or from the Bubble Diagram / Floor Plan.</p>`;
+  }
 
   const legend = `
     <div class="proximity-legend">
@@ -1080,22 +1448,22 @@ function buildProximityMatrix() {
     </div>
   `;
 
-  const headerCells = rooms
-    .map((room) => `<div class="triangle-header-cell">${room}</div>`)
+  const headerCells = spaces
+    .map((space) => `<div class="triangle-header-cell">${escapeHtml(space.name)}</div>`)
     .join("");
 
-  const rows = rooms
-    .map((rowName, rowIndex) => {
-      const cells = rooms
-        .map((colName, colIndex) => {
+  const rows = spaces
+    .map((rowSpace, rowIndex) => {
+      const cells = spaces
+        .map((colSpace, colIndex) => {
           if (colIndex <= rowIndex) {
             return `<div class="triangle-placeholder"></div>`;
           }
 
-          const key = `${rowIndex}-${colIndex}`;
+          const key = matrixKey(rowSpace.id, colSpace.id);
           const value = normalizeMatrixValue(matrix[key]);
           const classes = `triangle-cell matrix-${value === 0 ? "white" : value === 1 ? "grey" : "black"}`;
-          return `<button type="button" class="${classes}" data-matrix-key="${key}" title="${rowName} / ${colName}" aria-label="${rowName} and ${colName} adjacency">
+          return `<button type="button" class="${classes}" data-matrix-key="${key}" title="${escapeHtml(rowSpace.name)} / ${escapeHtml(colSpace.name)}" aria-label="${escapeHtml(rowSpace.name)} and ${escapeHtml(colSpace.name)} adjacency">
             ${value === 0 ? "" : value === 1 ? "•" : "■"}
           </button>`;
         })
@@ -1103,7 +1471,10 @@ function buildProximityMatrix() {
 
       return `
         <div class="triangle-row">
-          <div class="triangle-row-label">${rowName}</div>
+          <div class="triangle-row-label">
+            <span class="triangle-row-label-text">${escapeHtml(rowSpace.name)}</span>
+            <button type="button" class="matrix-delete-space" data-space-id="${rowSpace.id}" title="Delete ${escapeHtml(rowSpace.name)}" aria-label="Delete ${escapeHtml(rowSpace.name)}">×</button>
+          </div>
           ${cells}
         </div>
       `;
@@ -1111,8 +1482,9 @@ function buildProximityMatrix() {
     .join("");
 
   return `
+    ${addSpaceForm}
     ${legend}
-    <div class="proximity-triangle" style="--triangle-columns:${rooms.length};">
+    <div class="proximity-triangle" style="--triangle-columns:${spaces.length};">
       <div class="triangle-row triangle-header-row">
         <div class="triangle-header-spacer"></div>
         ${headerCells}
@@ -1148,6 +1520,37 @@ function renderProximityMatrix() {
       if (event.key === "Enter" || event.key === " ") {
         applyNextState(event);
       }
+    });
+  });
+
+  const addButton = container.querySelector("#matrix-add-space-btn");
+  const addInput = container.querySelector("#matrix-add-space-input");
+  if (addButton && addInput) {
+    const submitNewSpace = () => {
+      const value = addInput.value.trim();
+      if (!value) return;
+      addSpace(value);
+      renderAllProjectViews();
+    };
+
+    addButton.addEventListener("click", submitNewSpace);
+    addInput.addEventListener("keydown", (event) => {
+      if (event.key === "Enter") {
+        event.preventDefault();
+        submitNewSpace();
+      }
+    });
+  }
+
+  container.querySelectorAll(".matrix-delete-space").forEach((button) => {
+    button.addEventListener("click", () => {
+      const spaceId = button.dataset.spaceId;
+      if (!spaceId) return;
+      const space = (state.analysis.spaces || []).find((item) => item.id === spaceId);
+      const label = space ? space.name : "this space";
+      if (!confirm(`Delete "${label}"? This also removes it from the Bubble Diagram and Floor Plan.`)) return;
+      deleteSpace(spaceId);
+      renderAllProjectViews();
     });
   });
 }
@@ -1606,7 +2009,7 @@ function renderFloorPlan() {
       .map((room, index) => {
         const color = room.isFurniture ? (room.color || roomColors[index % roomColors.length]) : roomColors[index % roomColors.length];
         const visibleName = room.isFurniture && settings.furnitureSymbolsOnly ? room.name.split(" ")[0] : room.name;
-        const roomLabel = visibleName || "Item";
+        const roomLabel = escapeHtml(visibleName || "Item");
         const widthMeters = (room.width / 100).toFixed(1);
         const heightMeters = (room.height / 100).toFixed(1);
         const dimensionText = settings.showDimensions && !room.isFurniture ? `${widthMeters}m × ${heightMeters}m` : "";
@@ -1657,6 +2060,41 @@ function addFurnitureToPlan(toolName) {
   renderFloorPlan();
 }
 
+// Converts a chosen image file into a data URL so it's embedded directly in the saved/exported project.
+const MAX_UPLOAD_IMAGE_BYTES = 5 * 1024 * 1024;
+
+function wireImageFileInput(fileInputId, urlInputId) {
+  const fileInput = document.getElementById(fileInputId);
+  const urlInput = document.getElementById(urlInputId);
+  if (!fileInput || !urlInput) return;
+
+  fileInput.addEventListener("change", () => {
+    const file = fileInput.files && fileInput.files[0];
+    if (!file) return;
+
+    if (!file.type.startsWith("image/")) {
+      alert("Please choose an image file.");
+      fileInput.value = "";
+      return;
+    }
+
+    if (file.size > MAX_UPLOAD_IMAGE_BYTES) {
+      alert(`That image is too large (max ${(MAX_UPLOAD_IMAGE_BYTES / (1024 * 1024)).toFixed(0)} MB). Try a smaller photo or paste a URL instead.`);
+      fileInput.value = "";
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      urlInput.value = String(reader.result);
+    };
+    reader.onerror = () => {
+      alert("Could not read that image file. Please try again.");
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
 function attachPhaseTwoListeners() {
   const observationForm = document.getElementById("observation-form");
   if (observationForm) {
@@ -1692,21 +2130,6 @@ function attachPhaseTwoListeners() {
       activityField.value = button.dataset.activity;
     });
   });
-
-  const addSelectedButton = document.querySelector("#interview-categories .secondary-btn");
-  if (addSelectedButton) {
-    addSelectedButton.remove();
-  }
-
-  const interviewCategories = document.getElementById("interview-categories");
-  if (interviewCategories) {
-    const addButton = document.createElement("button");
-    addButton.type = "button";
-    addButton.className = "primary-btn small-btn";
-    addButton.textContent = "Add selected";
-    addButton.addEventListener("click", addSelectedInterviewQuestions);
-    interviewCategories.appendChild(addButton);
-  }
 
   const customQuestionButton = document.getElementById("add-custom-question");
   if (customQuestionButton) {
@@ -1793,7 +2216,7 @@ function attachPhaseTwoListeners() {
       const caption = document.getElementById("photo-caption").value.trim();
 
       if (!url) {
-        alert("Please add an image URL before saving the photo.");
+        alert("Please add an image URL or upload a photo before saving.");
         return;
       }
 
@@ -1841,6 +2264,10 @@ function attachPhaseTwoListeners() {
     });
   }
 
+  wireImageFileInput("observation-photo-file", "observation-photo");
+  wireImageFileInput("item-photo-file", "item-photo");
+  wireImageFileInput("photo-url-file", "photo-url");
+
   const floorPlanForm = document.getElementById("floor-plan-form");
   if (floorPlanForm) {
     floorPlanForm.addEventListener("submit", (event) => {
@@ -1863,14 +2290,11 @@ function attachPhaseTwoListeners() {
       const nextWidth = snapToGrid && snapToGrid.checked ? snapValue(width, 10) : width;
       const nextHeight = snapToGrid && snapToGrid.checked ? snapValue(height, 10) : height;
 
-      state.floorPlan.push({
-        id: Date.now(),
-        name: roomName,
+      addSpace(roomName, {
         x: clamp(nextX, 40, 900),
         y: clamp(nextY, 40, 620),
         width: enforceMinimumDimension(nextWidth, 80),
-        height: enforceMinimumDimension(nextHeight, 80),
-        isFurniture: false
+        height: enforceMinimumDimension(nextHeight, 80)
       });
 
       floorPlanForm.reset();
@@ -1878,8 +2302,7 @@ function attachPhaseTwoListeners() {
       document.getElementById("floor-room-y").value = 80;
       document.getElementById("floor-room-width").value = 180;
       document.getElementById("floor-room-height").value = 140;
-      saveProject();
-      renderFloorPlan();
+      renderAllProjectViews();
     });
   }
 
@@ -2022,6 +2445,15 @@ function attachPhaseTwoListeners() {
     });
   }
 
+  const connectToggle = document.getElementById("bubble-connect-toggle");
+  if (connectToggle) {
+    connectToggle.addEventListener("click", () => {
+      bubbleConnectMode = !bubbleConnectMode;
+      pendingConnectFromId = null;
+      renderBubbleDiagram();
+    });
+  }
+
   const clearFloorPlanButton = document.getElementById("clear-floor-plan");
   if (clearFloorPlanButton) {
     clearFloorPlanButton.addEventListener("click", () => {
@@ -2040,7 +2472,15 @@ function attachPhaseTwoListeners() {
         return;
       }
 
-      state.floorPlan = state.floorPlan.filter((item) => String(item.id) !== selectedFloorPlanItemId);
+      const item = state.floorPlan.find((entry) => String(entry.id) === selectedFloorPlanItemId);
+      if (item && item.spaceId) {
+        deleteSpace(item.spaceId);
+        selectedFloorPlanItemId = null;
+        renderAllProjectViews();
+        return;
+      }
+
+      state.floorPlan = state.floorPlan.filter((entry) => String(entry.id) !== selectedFloorPlanItemId);
       selectedFloorPlanItemId = null;
       saveProject();
       renderFloorPlan();
@@ -2053,9 +2493,15 @@ function attachPhaseTwoListeners() {
       if (event.key === "Enter") {
         const room = state.floorPlan.find((item) => String(item.id) === labelInput.dataset.roomId);
         if (room) {
-          room.name = labelInput.value.trim() || room.name;
-          saveProject();
-          renderFloorPlan();
+          const newName = labelInput.value.trim() || room.name;
+          if (room.spaceId) {
+            renameSpace(room.spaceId, newName);
+            renderAllProjectViews();
+          } else {
+            room.name = newName;
+            saveProject();
+            renderFloorPlan();
+          }
           hideFloorPlanLabelEditor();
         }
       }
@@ -2068,9 +2514,15 @@ function attachPhaseTwoListeners() {
     labelInput.addEventListener("blur", () => {
       const room = state.floorPlan.find((item) => String(item.id) === labelInput.dataset.roomId);
       if (room) {
-        room.name = labelInput.value.trim() || room.name;
-        saveProject();
-        renderFloorPlan();
+        const newName = labelInput.value.trim() || room.name;
+        if (room.spaceId) {
+          renameSpace(room.spaceId, newName);
+          renderAllProjectViews();
+        } else {
+          room.name = newName;
+          saveProject();
+          renderFloorPlan();
+        }
       }
       hideFloorPlanLabelEditor();
     });
@@ -2170,6 +2622,7 @@ attachPhaseTwoListeners();
 renderObservationTable();
 renderInterviewCategories();
 renderInterviewQuestions();
+renderProjectSummary();
 renderInventoryTable();
 renderSiteSurveyTable();
 renderPhotoGallery();
@@ -2186,5 +2639,81 @@ const switchProjectButton = document.getElementById("switch-project-btn");
 if (switchProjectButton) {
   switchProjectButton.addEventListener("click", () => {
     showProjectPicker();
+  });
+}
+
+// Lets a project move between devices/browsers manually via a downloaded JSON file (no account needed).
+function exportProjectData() {
+  const list = loadProjectList();
+  const matchedProject = list.find((project) => project.id === activeProjectId);
+  const projectName = (matchedProject && matchedProject.name) || state.profile.name || "project";
+  const safeName = projectName.trim().replace(/[^a-z0-9-_ ]/gi, "").replace(/\s+/g, "-") || "project";
+
+  const payload = {
+    exportedAt: new Date().toISOString(),
+    projectName,
+    data: state
+  };
+
+  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = `${safeName}.json`;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+}
+
+function importProjectData(file) {
+  const reader = new FileReader();
+
+  reader.onload = () => {
+    let parsed;
+    try {
+      parsed = JSON.parse(String(reader.result));
+    } catch (error) {
+      alert("That file isn't valid JSON. Please choose a file exported from this app.");
+      return;
+    }
+
+    const importedData = parsed && typeof parsed === "object" && parsed.data ? parsed.data : parsed;
+    if (!importedData || typeof importedData !== "object") {
+      alert("That file doesn't look like a Programming Studio export.");
+      return;
+    }
+
+    const projectName = (parsed && parsed.projectName) || (importedData.profile && importedData.profile.name) || "Imported project";
+    const projectId = `project-${Date.now()}`;
+    const list = loadProjectList();
+    list.push({ id: projectId, name: projectName });
+    persistProjectList(list);
+    localStorage.setItem(getProjectStorageKey(projectId), JSON.stringify(mergeWithDefaultState(importedData)));
+
+    openProject(projectId);
+    alert(`Imported "${projectName}" as a new project.`);
+  };
+
+  reader.onerror = () => {
+    alert("Could not read that file. Please try again.");
+  };
+
+  reader.readAsText(file);
+}
+
+const exportDataButton = document.getElementById("export-data-btn");
+if (exportDataButton) {
+  exportDataButton.addEventListener("click", exportProjectData);
+}
+
+const importDataButton = document.getElementById("import-data-btn");
+const importDataInput = document.getElementById("import-data-input");
+if (importDataButton && importDataInput) {
+  importDataButton.addEventListener("click", () => importDataInput.click());
+  importDataInput.addEventListener("change", () => {
+    const file = importDataInput.files && importDataInput.files[0];
+    if (file) importProjectData(file);
+    importDataInput.value = "";
   });
 }
