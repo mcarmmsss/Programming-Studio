@@ -163,6 +163,7 @@ let activeFurnitureTool = "bed";
 let selectedFloorPlanItemId = null;
 let selectedBubbleId = null;
 let editingSiteSurveyId = null;
+let editingObservationId = null;
 let bubbleConnectMode = false;
 let pendingConnectFromId = null;
 
@@ -556,7 +557,7 @@ function renderObservationTable() {
   if (!state.observations.length) {
     tableBody.innerHTML = `
       <tr>
-        <td colspan="7" class="empty-state">No observations have been added yet. Use the form above to record activity patterns.</td>
+        <td colspan="8" class="empty-state">No observations have been added yet. Use the form above to record activity patterns.</td>
       </tr>
     `;
     return;
@@ -579,10 +580,73 @@ function renderObservationTable() {
           <td>${entry.duration || "-"}</td>
           <td>${entry.finding || "-"}</td>
           <td>${entry.photo ? `<a href="${entry.photo}" target="_blank" rel="noreferrer">Open</a>` : "-"}</td>
+          <td>
+            <button type="button" class="secondary-btn small-btn edit-observation" data-observation-id="${entry.id}">Edit</button>
+            <button type="button" class="danger-btn small-btn delete-observation" data-observation-id="${entry.id}">Delete</button>
+          </td>
         </tr>
       `
     )
     .join("");
+
+  tableBody.querySelectorAll(".edit-observation").forEach((button) => {
+    button.addEventListener("click", () => editObservation(button.dataset.observationId));
+  });
+
+  tableBody.querySelectorAll(".delete-observation").forEach((button) => {
+    button.addEventListener("click", () => deleteObservation(button.dataset.observationId));
+  });
+}
+
+function editObservation(observationId) {
+  const entry = state.observations.find((item) => String(item.id) === String(observationId));
+  if (!entry) return;
+
+  editingObservationId = String(entry.id);
+  const fields = {
+    "observation-date": entry.date,
+    "observation-time": entry.time,
+    "observation-room": entry.room,
+    "observation-activity": entry.activity,
+    "observation-duration": entry.duration,
+    "observation-photo": entry.photo,
+    "observation-finding": entry.finding
+  };
+
+  Object.entries(fields).forEach(([id, value]) => {
+    const field = document.getElementById(id);
+    if (field) field.value = value ?? "";
+  });
+
+  const form = document.getElementById("observation-form");
+  const submitButton = form ? form.querySelector("button[type='submit']") : null;
+  const cancelButton = document.getElementById("cancel-observation-edit");
+  if (submitButton) submitButton.textContent = "Update observation";
+  if (cancelButton) cancelButton.hidden = false;
+  form?.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+function cancelObservationEdit() {
+  editingObservationId = null;
+  const form = document.getElementById("observation-form");
+  const submitButton = form ? form.querySelector("button[type='submit']") : null;
+  const cancelButton = document.getElementById("cancel-observation-edit");
+  form?.reset();
+  if (submitButton) submitButton.textContent = "Add observation";
+  if (cancelButton) cancelButton.hidden = true;
+}
+
+function deleteObservation(observationId) {
+  const entry = state.observations.find((item) => String(item.id) === String(observationId));
+  if (!entry) return;
+
+  const label = entry.activity || entry.room || "this observation";
+  if (!window.confirm(`Delete "${label}"?`)) return;
+
+  state.observations = state.observations.filter((item) => String(item.id) !== String(observationId));
+  if (editingObservationId === String(observationId)) cancelObservationEdit();
+  saveProject();
+  renderObservationTable();
 }
 
 function renderInterviewCategories() {
@@ -2206,11 +2270,22 @@ function attachPhaseTwoListeners() {
         return;
       }
 
-      state.observations.push(newEntry);
-      observationForm.reset();
+      if (editingObservationId) {
+        const existingIndex = state.observations.findIndex((item) => String(item.id) === editingObservationId);
+        if (existingIndex >= 0) state.observations[existingIndex] = { ...newEntry, id: state.observations[existingIndex].id };
+      } else {
+        state.observations.push(newEntry);
+      }
+
+      cancelObservationEdit();
       saveProject();
       renderObservationTable();
     });
+  }
+
+  const cancelObservationButton = document.getElementById("cancel-observation-edit");
+  if (cancelObservationButton) {
+    cancelObservationButton.addEventListener("click", cancelObservationEdit);
   }
 
   document.querySelectorAll(".chip-button").forEach((button) => {
@@ -2681,18 +2756,26 @@ manualSaveButton.addEventListener("click", () => {
 
 // 10) Reset project with confirmation.
 resetButton.addEventListener("click", () => {
-  const confirmed = window.confirm("Reset this project? This will clear the current profile data from the browser.");
+  const confirmed = window.confirm("Reset this project? This will clear all saved data in the current project.");
   if (!confirmed) return;
 
   localStorage.removeItem(STORAGE_KEY);
-  Object.assign(state, structuredClone(defaultState));
+  if (activeProjectId) {
+    localStorage.removeItem(getProjectStorageKey(activeProjectId));
+  }
+
+  state = structuredClone(defaultState);
+  editingObservationId = null;
+  editingSiteSurveyId = null;
+  selectedBubbleId = null;
+  selectedFloorPlanItemId = null;
   form.reset();
+  saveProject();
   populateForm();
-  updateSaveMessage();
-  updateDashboardProgress();
   renderObservationTable();
   renderInterviewCategories();
   renderInterviewQuestions();
+  renderProjectSummary();
   renderInventoryTable();
   renderSiteSurveyTable();
   renderPhotoGallery();
