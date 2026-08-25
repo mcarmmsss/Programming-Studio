@@ -162,6 +162,7 @@ let floorPlanDragState = null;
 let activeFurnitureTool = "bed";
 let selectedFloorPlanItemId = null;
 let selectedBubbleId = null;
+let editingSiteSurveyId = null;
 let bubbleConnectMode = false;
 let pendingConnectFromId = null;
 
@@ -890,7 +891,7 @@ function renderSiteSurveyTable() {
   if (!state.siteSurvey.length) {
     tableBody.innerHTML = `
       <tr>
-        <td colspan="8" class="empty-state">No site survey entries have been saved yet.</td>
+        <td colspan="9" class="empty-state">No site survey entries have been saved yet.</td>
       </tr>
     `;
     return;
@@ -908,10 +909,63 @@ function renderSiteSurveyTable() {
           <td>${room.lighting || "-"}</td>
           <td>${room.ventilation || "-"}</td>
           <td>${room.noise || "-"}</td>
+          <td><button type="button" class="secondary-btn small-btn edit-site-survey" data-room-id="${room.id}">Edit</button></td>
         </tr>
       `
     )
     .join("");
+
+  tableBody.querySelectorAll(".edit-site-survey").forEach((button) => {
+    button.addEventListener("click", () => editSiteSurvey(button.dataset.roomId));
+  });
+}
+
+function editSiteSurvey(roomId) {
+  const room = state.siteSurvey.find((item) => String(item.id) === String(roomId));
+  if (!room) return;
+
+  editingSiteSurveyId = String(room.id);
+  const fields = {
+    "site-room-name": room.name,
+    "site-dimensions": room.dimensions,
+    "site-area": room.area,
+    "site-doors": room.doors,
+    "site-windows": room.windows,
+    "site-stairs": room.stairs,
+    "site-ceiling": room.ceiling,
+    "site-lighting": room.lighting,
+    "site-ventilation": room.ventilation,
+    "site-noise": room.noise,
+    "site-views": room.views,
+    "site-observations": room.observations,
+    "site-outlets": room.outlets,
+    "site-plumbing": room.plumbing,
+    "site-mechanical": room.mechanical,
+    "site-router": room.router,
+    "site-builtins": room.builtIns
+  };
+
+  Object.entries(fields).forEach(([id, value]) => {
+    const field = document.getElementById(id);
+    if (field) field.value = value ?? "";
+  });
+
+  const form = document.getElementById("site-survey-form");
+  const submitButton = form ? form.querySelector("button[type='submit']") : null;
+  const cancelButton = document.getElementById("cancel-site-survey-edit");
+  if (submitButton) submitButton.textContent = "Update room survey";
+  if (cancelButton) cancelButton.hidden = false;
+  form?.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+function cancelSiteSurveyEdit() {
+  editingSiteSurveyId = null;
+  const form = document.getElementById("site-survey-form");
+  const submitButton = form ? form.querySelector("button[type='submit']") : null;
+  const cancelButton = document.getElementById("cancel-site-survey-edit");
+  form?.reset();
+  if (submitButton) submitButton.textContent = "Add room survey";
+  if (cancelButton) cancelButton.hidden = true;
 }
 
 function renderPhotoGallery() {
@@ -2233,11 +2287,22 @@ function attachPhaseTwoListeners() {
         return;
       }
 
-      state.siteSurvey.push(newRoom);
-      siteSurveyForm.reset();
+      if (editingSiteSurveyId) {
+        const existingIndex = state.siteSurvey.findIndex((room) => String(room.id) === editingSiteSurveyId);
+        if (existingIndex >= 0) state.siteSurvey[existingIndex] = { ...newRoom, id: state.siteSurvey[existingIndex].id };
+      } else {
+        state.siteSurvey.push(newRoom);
+      }
+
+      cancelSiteSurveyEdit();
       saveProject();
       renderSiteSurveyTable();
     });
+  }
+
+  const cancelSiteSurveyButton = document.getElementById("cancel-site-survey-edit");
+  if (cancelSiteSurveyButton) {
+    cancelSiteSurveyButton.addEventListener("click", cancelSiteSurveyEdit);
   }
 
   const photoForm = document.getElementById("photo-form");
