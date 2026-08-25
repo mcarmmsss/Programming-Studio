@@ -75,6 +75,15 @@ const mandatoryQuestions = [
   "In three words, describe your ideal space for your interest or passion."
 ];
 
+const legacyExampleSpaceNames = new Set([
+  "Reception",
+  "Lobby",
+  "Therapy",
+  "Gym",
+  "Wellness",
+  "Office"
+]);
+
 function escapeHtml(value) {
   return String(value ?? "")
     .replaceAll("&", "&amp;")
@@ -964,6 +973,25 @@ function ensureSpacesRegistry() {
   });
 }
 
+function removeLegacyExampleSpaces() {
+  const nodes = state.analysis.bubbleNodes || [];
+  const legacyNodes = nodes.filter((node) => legacyExampleSpaceNames.has(node.name));
+  const legacySpaceIds = new Set(legacyNodes.map((node) => node.spaceId).filter(Boolean));
+  const hasLegacySpace = (state.analysis.spaces || []).some((space) => legacyExampleSpaceNames.has(space.name));
+  const hasLegacyRoom = (state.floorPlan || []).some((room) => legacyExampleSpaceNames.has(room.name));
+  if (!legacyNodes.length && !hasLegacySpace && !hasLegacyRoom) return false;
+
+  state.analysis.bubbleNodes = nodes.filter((node) => !legacyExampleSpaceNames.has(node.name));
+  state.analysis.spaces = (state.analysis.spaces || []).filter((space) => {
+    return !legacySpaceIds.has(space.id) && !legacyExampleSpaceNames.has(space.name);
+  });
+  state.floorPlan = (state.floorPlan || []).filter((room) => !legacySpaceIds.has(room.spaceId) && !legacyExampleSpaceNames.has(room.name));
+  state.analysis.bubbleLinks = (state.analysis.bubbleLinks || []).filter((link) => {
+    return state.analysis.bubbleNodes.some((node) => node.id === link.from) && state.analysis.bubbleNodes.some((node) => node.id === link.to);
+  });
+  return true;
+}
+
 // Adds a space and auto-creates the matching Bubble Diagram node + Floor Plan room.
 function addSpace(name, options = {}) {
   const trimmed = String(name || "").trim();
@@ -1059,37 +1087,20 @@ function deleteSpace(spaceId) {
 }
 
 function ensureBubbleNodes() {
+  const removedExamples = removeLegacyExampleSpaces();
   ensureSpacesRegistry();
 
   if (!Array.isArray(state.analysis.bubbleNodes) || !state.analysis.bubbleNodes.length) {
-    const labels = [
-      "Reception",
-      "Lobby",
-      "Therapy",
-      "Gym",
-      "Wellness",
-      "Office"
-    ];
-
-    state.analysis.bubbleNodes = labels.map((label, index) => {
-      const spaceId = generateSpaceId();
-      state.analysis.spaces.push({ id: spaceId, name: label });
-      return {
-        id: `bubble-${index + 1}`,
-        spaceId,
-        name: label,
-        x: 80 + (index % 3) * 150,
-        y: 60 + Math.floor(index / 3) * 120,
-        size: 86
-      };
-    });
-    selectedBubbleId = state.analysis.bubbleNodes[0]?.id || null;
+    state.analysis.bubbleNodes = [];
+    selectedBubbleId = null;
   }
 
   if (!Array.isArray(state.analysis.bubbleLinks)) {
     state.analysis.bubbleLinks = [];
   }
   state.analysis.bubbleLinks = state.analysis.bubbleLinks.map(normalizeBubbleLink);
+
+  if (removedExamples) saveProject();
 }
 
 function addBubbleNode(name) {
@@ -1455,7 +1466,7 @@ function buildProximityMatrix() {
 
   const addSpaceForm = `
     <div class="matrix-add-space-row">
-      <input type="text" id="matrix-add-space-input" placeholder="Add a space (e.g. Kitchen)" />
+      <input type="text" id="matrix-add-space-input" placeholder="Add a space" />
       <button type="button" id="matrix-add-space-btn" class="primary-btn small-btn">Add space</button>
     </div>
   `;
