@@ -762,7 +762,7 @@ function renderProjectSummary() {
     { title: "Photos", target: "photos", count: state.photos.length, items: state.photos.slice(-5).map((item) => [item.location || "Photo", item.caption || item.category || "No caption added"]) },
     { title: "Spatial studies", target: "bubble-diagram", count: (state.analysis.bubbleNodes || []).length + (state.floorPlan || []).length, items: [
       ["Bubble diagram", `${(state.analysis.bubbleNodes || []).length} bubbles`],
-      ["Floor plan", `${(state.floorPlan || []).length} items`]
+      ["Block plan", `${(state.floorPlan || []).length} items`]
     ] },
     { title: "Findings & conclusion", target: "findings", count: [state.analysis.findings.keyFindings, state.analysis.findings.constraints, state.analysis.findings.opportunities, state.analysis.findings.recommendations, state.analysis.conclusion.summary, state.analysis.conclusion.recommendation].filter((value) => String(value || "").trim()).length, items: [
       ["Key findings", state.analysis.findings.keyFindings],
@@ -1472,7 +1472,7 @@ function buildProximityMatrix() {
   `;
 
   if (!spaces.length) {
-    return `${addSpaceForm}<p class="empty-state">No spaces yet. Add one above, or from the Bubble Diagram / Floor Plan.</p>`;
+    return `${addSpaceForm}<p class="empty-state">No spaces yet. Add one above, or from the Bubble Diagram / Block Plan.</p>`;
   }
 
   const legend = `
@@ -1583,7 +1583,7 @@ function renderProximityMatrix() {
       if (!spaceId) return;
       const space = (state.analysis.spaces || []).find((item) => item.id === spaceId);
       const label = space ? space.name : "this space";
-      if (!confirm(`Delete "${label}"? This also removes it from the Bubble Diagram and Floor Plan.`)) return;
+      if (!confirm(`Delete "${label}"? This also removes it from the Bubble Diagram and Block Plan.`)) return;
       deleteSpace(spaceId);
       renderAllProjectViews();
     });
@@ -1748,7 +1748,7 @@ function renderReportPreview() {
           (room) => `<li>${room.name || "Unnamed room"} — ${Math.round(room.width)} × ${Math.round(room.height)} mm</li>`
         )
         .join("")
-    : '<li class="empty-state">No floor plan items have been added yet.</li>';
+    : '<li class="empty-state">No block plan items have been added yet.</li>';
 
   const interviewSummary = Object.values(state.interview.answers || {}).filter(Boolean).length
     ? state.interview.questions
@@ -1804,7 +1804,7 @@ function renderReportPreview() {
       </section>
 
       <section class="report-section">
-        <h4>6. Floor plan summary</h4>
+        <h4>6. Block plan summary</h4>
         <ul class="report-list">${floorPlanSummary}</ul>
       </section>
 
