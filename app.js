@@ -1545,10 +1545,17 @@ function renderBubbleDiagram() {
   };
 }
 
-function normalizeMatrixValue(value) {
-  const numeric = Number(value);
-  if (!Number.isFinite(numeric)) return 0;
-  return Math.max(0, Math.min(2, Math.round(numeric)));
+function normalizeMatrixState(value) {
+  const legacyStates = { "1": "Secondary", "2": "Primary" };
+  const state = String(value ?? "").trim();
+  if (["Primary", "Secondary", "Undesired"].includes(state)) return state;
+  return legacyStates[state] || "";
+}
+
+function getNextMatrixState(value) {
+  const states = ["", "Primary", "Secondary", "Undesired"];
+  const currentIndex = states.indexOf(normalizeMatrixState(value));
+  return states[(currentIndex + 1) % states.length];
 }
 
 // Stable, order-independent key so deleting/reordering spaces can't corrupt unrelated cells.
@@ -1593,56 +1600,18 @@ function buildProximityMatrix() {
     return `${addSpaceForm}<p class="empty-state">No spaces yet. Add one above, or from the Bubble Diagram / Block Plan.</p>`;
   }
 
-  const legend = `
-    <div class="proximity-legend">
-      <span><strong>white</strong> = no relation</span>
-      <span><strong>grey</strong> = weak relation</span>
-      <span><strong>black</strong> = strong relation</span>
-    </div>
-  `;
-
-  const headerCells = spaces
-    .map((space) => `<div class="triangle-header-cell">${escapeHtml(space.name)}</div>`)
-    .join("");
-
-  const rows = spaces
-    .map((rowSpace, rowIndex) => {
-      const cells = spaces
-        .map((colSpace, colIndex) => {
-          if (colIndex <= rowIndex) {
-            return `<div class="triangle-placeholder"></div>`;
-          }
-
-          const key = matrixKey(rowSpace.id, colSpace.id);
-          const value = normalizeMatrixValue(matrix[key]);
-          const classes = `triangle-cell matrix-${value === 0 ? "white" : value === 1 ? "grey" : "black"}`;
-          return `<button type="button" class="${classes}" data-matrix-key="${key}" title="${escapeHtml(rowSpace.name)} / ${escapeHtml(colSpace.name)}" aria-label="${escapeHtml(rowSpace.name)} and ${escapeHtml(colSpace.name)} adjacency">
-            ${value === 0 ? "" : value === 1 ? "•" : "■"}
-          </button>`;
-        })
-        .join("");
-
-      return `
-        <div class="triangle-row">
-          <div class="triangle-row-label">
-            <span class="triangle-row-label-text">${escapeHtml(rowSpace.name)}</span>
-            <button type="button" class="matrix-delete-space" data-space-id="${rowSpace.id}" title="Delete ${escapeHtml(rowSpace.name)}" aria-label="Delete ${escapeHtml(rowSpace.name)}">×</button>
-          </div>
-          ${cells}
-        </div>
-      `;
-    })
-    .join("");
+  const diagram = window.ProgrammingStudioAdjacencyMatrix
+    ? window.ProgrammingStudioAdjacencyMatrix.createDiagramMarkup(spaces, (from, to) => normalizeMatrixState(matrix[matrixKey(from.id, to.id)]))
+    : '<p class="empty-state">The adjacency matrix editor could not load.</p>';
 
   return `
     ${addSpaceForm}
-    ${legend}
-    <div class="proximity-triangle" style="--triangle-columns:${spaces.length};">
-      <div class="triangle-row triangle-header-row">
-        <div class="triangle-header-spacer"></div>
-        ${headerCells}
-      </div>
-      ${rows}
+    <div class="proximity-matrix-workspace">
+      ${diagram}
+    </div>
+    <div class="button-row matrix-actions">
+      <button type="button" id="download-adjacency-svg" class="secondary-btn small-btn">Download SVG</button>
+      <button type="button" id="download-adjacency-png" class="secondary-btn small-btn">Download PNG</button>
     </div>
   `;
 }
@@ -1652,16 +1621,23 @@ function renderProximityMatrix() {
   if (!container) return;
   container.innerHTML = buildProximityMatrix();
 
-  container.querySelectorAll(".triangle-cell").forEach((cell) => {
-    const key = cell.dataset.matrixKey;
-    if (!key) return;
+  container.querySelectorAll(".adjacency-cell").forEach((cell) => {
+    const fromId = cell.dataset.fromId;
+    const toId = cell.dataset.toId;
+    if (!fromId || !toId) return;
+    const key = matrixKey(fromId, toId);
 
     const applyNextState = (event) => {
-      const current = normalizeMatrixValue(state.analysis.proximityMatrix[key]);
-      const next = current === 0 ? 1 : current === 1 ? 2 : 0;
-      state.analysis.proximityMatrix[key] = String(next);
-      cell.className = `triangle-cell matrix-${next === 0 ? "white" : next === 1 ? "grey" : "black"}`;
-      cell.textContent = next === 0 ? "" : next === 1 ? "•" : "■";
+      const next = getNextMatrixState(state.analysis.proximityMatrix[key]);
+      if (next) {
+        state.analysis.proximityMatrix[key] = next;
+      } else {
+        delete state.analysis.proximityMatrix[key];
+      }
+      const symbol = next === "Primary" ? "●" : next === "Secondary" ? "○" : next === "Undesired" ? "╱" : "";
+      cell.className.baseVal = `adjacency-cell matrix-${next ? next.toLowerCase() : "blank"}`;
+      cell.dataset.state = next;
+      cell.querySelector("text").textContent = symbol;
       saveProject();
       if (event && event.type === "keydown") {
         event.preventDefault();
@@ -1673,6 +1649,18 @@ function renderProximityMatrix() {
       if (event.key === "Enter" || event.key === " ") {
         applyNextState(event);
       }
+    });
+
+    cell.addEventListener("mouseenter", () => {
+      const fromId = cell.dataset.fromId;
+      const toId = cell.dataset.toId;
+      container.querySelectorAll(".adjacency-room").forEach((room) => {
+        room.classList.toggle("active", room.dataset.spaceId === fromId || room.dataset.spaceId === toId);
+      });
+    });
+
+    cell.addEventListener("mouseleave", () => {
+      container.querySelectorAll(".adjacency-room").forEach((room) => room.classList.remove("active"));
     });
   });
 
@@ -1706,6 +1694,68 @@ function renderProximityMatrix() {
       renderAllProjectViews();
     });
   });
+
+  const getExportableSvg = () => {
+    const svg = container.querySelector(".adjacency-matrix-svg");
+    if (!svg) return null;
+    const copy = svg.cloneNode(true);
+    copy.setAttribute("xmlns", "http://www.w3.org/2000/svg");
+    copy.setAttribute("width", svg.viewBox.baseVal.width);
+    copy.setAttribute("height", svg.viewBox.baseVal.height);
+    copy.insertAdjacentHTML("afterbegin", `<style>
+      .adjacency-room line { stroke: #405246; stroke-width: 1; }
+      .adjacency-room text { fill: #405246; font: 600 13px sans-serif; }
+      .adjacency-cell rect { fill: #fff; stroke: #1c2b21; stroke-width: 1.2; }
+      .adjacency-cell text { fill: #111; font: 700 18px sans-serif; }
+      .adjacency-cell.matrix-undesired text, .adjacency-key .undesired { fill: #9b2c2c; }
+      .adjacency-key text { fill: #1e2c22; font: 12px sans-serif; }
+      .adjacency-key .key-symbol { font: 700 20px sans-serif; }
+    </style>`);
+    return copy;
+  };
+
+  const downloadButton = container.querySelector("#download-adjacency-svg");
+  if (downloadButton) {
+    downloadButton.addEventListener("click", () => {
+      const svg = getExportableSvg();
+      if (!svg) return;
+      const url = URL.createObjectURL(new Blob([new XMLSerializer().serializeToString(svg)], { type: "image/svg+xml;charset=utf-8" }));
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = "programming-studio-adjacency-matrix.svg";
+      link.click();
+      URL.revokeObjectURL(url);
+    });
+  }
+
+  const pngButton = container.querySelector("#download-adjacency-png");
+  if (pngButton) {
+    pngButton.addEventListener("click", () => {
+      const svg = getExportableSvg();
+      if (!svg) return;
+      const width = Number(svg.getAttribute("width"));
+      const height = Number(svg.getAttribute("height"));
+      const url = URL.createObjectURL(new Blob([new XMLSerializer().serializeToString(svg)], { type: "image/svg+xml;charset=utf-8" }));
+      const image = new Image();
+      image.onload = () => {
+        const scale = 2;
+        const canvas = document.createElement("canvas");
+        canvas.width = width * scale;
+        canvas.height = height * scale;
+        const context = canvas.getContext("2d");
+        context.fillStyle = "#ffffff";
+        context.fillRect(0, 0, canvas.width, canvas.height);
+        context.scale(scale, scale);
+        context.drawImage(image, 0, 0, width, height);
+        URL.revokeObjectURL(url);
+        const link = document.createElement("a");
+        link.href = canvas.toDataURL("image/png");
+        link.download = "programming-studio-adjacency-matrix.png";
+        link.click();
+      };
+      image.src = url;
+    });
+  }
 }
 
 function renderDataVisualization() {

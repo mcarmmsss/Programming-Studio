@@ -409,7 +409,7 @@ button {
   display: flex;
   flex-wrap: wrap;
   gap: 10px 16px;
-  margin-bottom: 12px;
+  margin: 18px 0 14px;
   color: var(--muted);
   font-size: 0.8rem;
 }
@@ -418,21 +418,121 @@ button {
   color: var(--ink);
 }
 
+.matrix-symbol {
+  display: inline-block;
+  width: 16px;
+  text-align: center;
+  font-size: 1rem;
+}
+
+.primary-symbol {
+  color: #111;
+}
+
+.secondary-symbol {
+  color: #111;
+}
+
+.undesired-symbol {
+  color: #9b2c2c;
+  font-size: 1.2rem;
+}
+
 .proximity-triangle {
   display: grid;
-  gap: 8px;
+  gap: 14px;
   width: 100%;
-  padding: 12px;
+  padding: 18px 18px 22px;
+  overflow-x: auto;
   border: 1px solid var(--line);
-  border-radius: 16px;
+  border-radius: 10px;
+  background: #fbfaf6;
+}
+
+.proximity-matrix-workspace {
+  margin-top: 16px;
+  overflow-x: auto;
+  border: 1px solid var(--line);
+  border-radius: 10px;
   background: #fff;
+}
+
+.adjacency-matrix-svg {
+  display: block;
+  width: auto;
+  min-width: 0;
+  max-width: none;
+  height: auto;
+  padding: 12px;
+}
+
+.adjacency-room line {
+  stroke: #405246;
+  stroke-width: 1;
+}
+
+.adjacency-room text {
+  fill: #9ca59c;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.adjacency-room.active text {
+  fill: var(--ink);
+}
+
+.adjacency-cell {
+  cursor: pointer;
+  outline: none;
+}
+
+.adjacency-cell rect {
+  fill: #fff;
+  stroke: #1c2b21;
+  stroke-width: 1.2;
+}
+
+.adjacency-cell:hover rect,
+.adjacency-cell:focus-visible rect {
+  stroke: var(--gold);
+  stroke-width: 2.4;
+}
+
+.adjacency-cell text {
+  fill: #111;
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.adjacency-cell.matrix-primary text {
+  font-size: 20px;
+}
+
+.adjacency-cell.matrix-undesired text,
+.adjacency-key .undesired {
+  fill: #9b2c2c;
+}
+
+.adjacency-key text {
+  fill: var(--ink);
+  font-size: 12px;
+}
+
+.adjacency-key .key-symbol {
+  font-size: 20px;
+  font-weight: 700;
+}
+
+.matrix-actions {
+  margin-top: 12px;
 }
 
 .triangle-row {
   display: grid;
-  grid-template-columns: 120px repeat(var(--triangle-columns), minmax(38px, 1fr));
-  gap: 8px;
+  grid-template-columns: 150px repeat(var(--triangle-columns), 44px);
+  gap: 14px;
   align-items: center;
+  min-width: max-content;
 }
 
 .triangle-header-row {
@@ -445,13 +545,13 @@ button {
   display: flex;
   align-items: center;
   justify-content: center;
-  min-height: 36px;
+  min-height: 44px;
   font-size: 0.72rem;
   font-weight: 700;
   color: var(--accent-deep);
-  background: rgba(94, 143, 110, 0.05);
-  border: 1px solid var(--line);
-  border-radius: 8px;
+  background: transparent;
+  border: none;
+  border-radius: 0;
 }
 
 .triangle-row-label {
@@ -501,46 +601,54 @@ button {
 }
 
 .triangle-header-cell {
-  padding: 0 6px;
-  writing-mode: horizontal-tb;
+  padding: 0;
+  writing-mode: vertical-rl;
+  transform: rotate(180deg);
 }
 
 .triangle-placeholder {
-  min-height: 38px;
+  min-height: 44px;
   background: transparent;
   border: none;
 }
 
 .triangle-cell {
-  min-height: 38px;
-  border-radius: 8px;
-  border: 1px solid var(--line);
+  width: 32px;
+  height: 32px;
+  min-height: 0;
+  justify-self: center;
+  border-radius: 0;
+  border: 1px solid #1c2b21;
+  background: #fff;
   cursor: pointer;
   font-weight: 800;
   font-size: 0.9rem;
-  transition: transform 0.15s ease, filter 0.15s ease;
+  transform: rotate(45deg);
+  transition: background 0.15s ease, box-shadow 0.15s ease;
 }
 
 .triangle-cell:hover,
 .triangle-cell:focus-visible {
-  filter: brightness(0.98);
-  outline: none;
-  transform: scale(1.02);
+  outline: 2px solid var(--gold);
+  outline-offset: 3px;
+  box-shadow: 0 0 0 3px rgba(214, 180, 119, 0.2);
 }
 
-.matrix-white {
-  background: #ffffff;
-  color: transparent;
-}
-
-.matrix-grey {
-  background: #d9d9d9;
+.triangle-cell span {
+  display: block;
   color: #111;
+  font-size: 1.15rem;
+  line-height: 1;
+  transform: rotate(-45deg);
 }
 
-.matrix-black {
-  background: #111111;
-  color: #fff;
+.triangle-cell.matrix-primary span {
+  font-size: 1.35rem;
+}
+
+.triangle-cell.matrix-undesired span {
+  color: #9b2c2c;
+  font-size: 1.5rem;
 }
 
 .bar-row {
